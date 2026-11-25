@@ -2,10 +2,19 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from backend.auth.config import (
+    get_auth_settings,
+    get_trusted_origins,
+    is_trusted_origin,
+)
+from backend.auth.dependencies import authenticate_websocket, require_roles
+from backend.auth.router import router as auth_router
+from backend.friends.database import initialize_database
 from backend.simulator.engine import CrowdSimulator
 from backend.api.connection_manager import ConnectionManager
 
@@ -75,6 +84,7 @@ async def simulation_loop():
 async def lifespan(app: FastAPI):
     global simulation_task
 
+    initialize_database()
     simulation_task = asyncio.create_task(simulation_loop())
 
     yield
@@ -95,14 +105,31 @@ app = FastAPI(
 )
 
 app.include_router(friends_router)
+app.include_router(auth_router)
 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=get_trusted_origins(),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-User-ID"],
 )
+
+
+@app.middleware("http")
+async def validate_cookie_request_origin(request: Request, call_next):
+    settings = get_auth_settings()
+    if (
+        request.method in {"POST", "PUT", "PATCH", "DELETE"}
+        and request.cookies.get(settings.cookie_name)
+        and not is_trusted_origin(request.headers.get("origin"))
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Untrusted request origin."},
+        )
+    return await call_next(request)
 
 
 class SurgeRequest(BaseModel):
@@ -126,13 +153,21 @@ def health():
     }
 
 
-@app.get("/stadium/snapshot")
+@app.get(
+    "/stadium/snapshot",
+    dependencies=[Depends(require_roles("USER", "CONTROLLER"))],
+)
 def get_snapshot():
     return simulator.get_snapshot()
 
 
-@app.post("/simulate/surge")
-def trigger_surge(request: SurgeRequest):
+@app.post(
+    "/simulate/surge",
+    dependencies=[Depends(require_roles("CONTROLLER"))],
+)
+def trigger_surge(
+    request: SurgeRequest,
+):
     simulator.trigger_surge(
         request.zone_id,
         request.people_per_tick
@@ -145,7 +180,10 @@ def trigger_surge(request: SurgeRequest):
     }
 
 
-@app.post("/simulate/stop")
+@app.post(
+    "/simulate/stop",
+    dependencies=[Depends(require_roles("CONTROLLER"))],
+)
 def stop_surge():
     simulator.stop_surge()
 
@@ -156,6 +194,13 @@ def stop_surge():
 
 @app.websocket("/ws/stadium")
 async def stadium_websocket(websocket: WebSocket):
+
+    principal = await authenticate_websocket(
+        websocket,
+        ("USER", "CONTROLLER"),
+    )
+    if principal is None:
+        return
 
     await manager.connect(websocket)
 

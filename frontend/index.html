@@ -4,11 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="api-base-url" content="http://127.0.0.1:8000">
     <title>Smart Stadium Dashboard</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
-<body>
+<body class="auth-pending">
 
     <!-- Top Navigation -->
     <header class="navbar">
@@ -23,6 +24,7 @@
         <div class="nav-meta">
             <span class="datetime-display" id="current-datetime">Live Clock Ready</span>
             <span class="status" id="system-status">● System Online</span>
+            <button type="button" class="dashboard-logout" id="dashboard-logout" disabled>Sign out</button>
         </div>
     </header>
 

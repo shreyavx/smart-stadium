@@ -2,3 +2,5 @@ fastapi
 uvicorn[standard]
 numpy
 pytest
+azure-communication-sms
+httpx

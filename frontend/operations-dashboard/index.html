@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#08111f">
+    <meta name="api-base-url" content="http://127.0.0.1:8000">
+    <title>Operations Control Center | Smart Stadium</title>
+    <link rel="stylesheet" href="operations.css">
+    <script src="operations.js" defer></script>
+</head>
+<body class="auth-pending">
+    <div class="app-shell">
+        <aside class="sidebar" id="operations-sidebar" aria-label="Operations sidebar">
+            <a class="brand" href="#overview" aria-label="Smart Stadium Operations home">
+                <span class="brand-mark">SS</span>
+                <span class="brand-copy">
+                    <strong>SMART STADIUM</strong>
+                    <small>OPERATIONS</small>
+                </span>
+            </a>
+
+            <div class="venue-status">
+                <span class="status-dot" aria-hidden="true"></span>
+                <span>CONTROL CENTER</span>
+                <span class="live-label">LIVE</span>
+            </div>
+
+            <nav class="primary-nav" aria-label="Operations navigation">
+                <a class="nav-link is-active" href="#overview">
+                    <span class="nav-icon" aria-hidden="true">▦</span>
+                    <span>Overview</span>
+                </a>
+                <a class="nav-link" href="#gates">
+                    <span class="nav-icon" aria-hidden="true">⇄</span>
+                    <span>Gate management</span>
+                </a>
+                <a class="nav-link" href="#staff">
+                    <span class="nav-icon" aria-hidden="true">♙</span>
+                    <span>Staff management</span>
+                </a>
+                <a class="nav-link" href="#incidents">
+                    <span class="nav-icon" aria-hidden="true">!</span>
+                    <span>Incidents</span>
+                    <span class="nav-count" id="nav-incident-count">3</span>
+                </a>
+                <a class="nav-link" href="#emergency">
+                    <span class="nav-icon" aria-hidden="true">✚</span>
+                    <span>Emergency response</span>
+                </a>
+                <a class="nav-link" href="#facilities">
+                    <span class="nav-icon" aria-hidden="true">⌂</span>
+                    <span>Facilities</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <span class="operator-avatar" aria-hidden="true">AM</span>
+                <span class="operator-copy">
+                    <strong>Alex Morgan</strong>
+                    <small>Operations lead</small>
+                </span>
+                <span class="operator-state" title="On duty" aria-label="On duty"></span>
+                <button class="sidebar-logout" id="dashboard-logout" type="button" aria-label="Sign out" title="Sign out" disabled>↪</button>
+            </div>
+        </aside>
+
+        <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" aria-hidden="true" tabindex="-1"></button>
+
+        <div class="main-shell">
+            <header class="topbar">
+                <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Open navigation" aria-controls="operations-sidebar" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+                <div class="breadcrumbs">
+                    <span>Operations</span>
+                    <span class="breadcrumb-divider" aria-hidden="true">/</span>
+                    <strong>Control center</strong>
+                </div>
+                <div class="topbar-meta">
+                    <span class="shift-indicator"><span class="status-dot" aria-hidden="true"></span> Shift A · On duty</span>
+                    <span class="topbar-divider" aria-hidden="true"></span>
+                    <time id="current-time">--:--</time>
+                </div>
+            </header>
+
+            <main class="content">
+                <section class="page-heading" id="overview" aria-labelledby="page-title">
+                    <div>
+                        <p class="eyebrow">STADIUM OPERATIONS</p>
+                        <h1 id="page-title">Control center</h1>
+                        <p class="page-description">A live operational snapshot for stadium teams and response staff.</p>
+                    </div>
+                    <span class="demo-tag"><span class="status-dot" aria-hidden="true"></span> Frontend demonstration data</span>
+                </section>
+
+                <section class="overview-grid" aria-label="Operations overview">
+                    <article class="metric-card">
+                        <div class="metric-top">
+                            <span class="metric-icon staff-icon" aria-hidden="true">♙</span>
+                            <span class="metric-caption">CURRENT SHIFT</span>
+                        </div>
+                        <strong class="metric-value" id="staff-on-duty">12</strong>
+                        <span class="metric-label">Staff on duty</span>
+                    </article>
+                    <article class="metric-card">
+                        <div class="metric-top">
+                            <span class="metric-icon security-icon" aria-hidden="true">◈</span>
+                            <span class="metric-caption">DEPLOYED</span>
+                        </div>
+                        <strong class="metric-value" id="security-count">4</strong>
+                        <span class="metric-label">Security personnel</span>
+                    </article>
+                    <article class="metric-card">
+                        <div class="metric-top">
+                            <span class="metric-icon medical-icon" aria-hidden="true">✚</span>
+                            <span class="metric-caption">READY</span>
+                        </div>
+                        <strong class="metric-value" id="medical-count">3</strong>
+                        <span class="metric-label">Medical team members</span>
+                    </article>
+                    <article class="metric-card metric-card-alert">
+                        <div class="metric-top">
+                            <span class="metric-icon incident-icon" aria-hidden="true">!</span>
+                            <span class="metric-caption">REQUIRES ATTENTION</span>
+                        </div>
+                        <strong class="metric-value" id="active-incident-count">3</strong>
+                        <span class="metric-label">Active incidents</span>
+                    </article>
+                    <article class="metric-card">
+                        <div class="metric-top">
+                            <span class="metric-icon gate-icon" aria-hidden="true">⇄</span>
+                            <span class="metric-caption">OPEN OR BUSY</span>
+                        </div>
+                        <strong class="metric-value" id="operational-gate-count">5 <small>/ 6</small></strong>
+                        <span class="metric-label">Gates operational</span>
+                    </article>
+                </section>
+
+                <div class="primary-grid">
+                    <section class="panel" id="gates" aria-labelledby="gates-title">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">ACCESS CONTROL</p>
+                                <h2 id="gates-title">Gate management</h2>
+                            </div>
+                            <span class="panel-count">6 gates</span>
+                        </div>
+                        <div class="table-scroll">
+                            <table class="operations-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Gate</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Crowd level</th>
+                                        <th scope="col">Security assigned</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="gate-table-body">
+                                    <tr data-gate-status="Open">
+                                        <td data-label="Gate"><span class="gate-id">G-01</span><strong>North Main Gate</strong></td>
+                                        <td data-label="Status"><span class="status-pill status-open">Open</span></td>
+                                        <td data-label="Crowd level"><span class="crowd-level crowd-low"><span></span>Low · 28%</span></td>
+                                        <td data-label="Security assigned">Maya Chen <small>· 4 staff</small></td>
+                                    </tr>
+                                    <tr data-gate-status="Busy">
+                                        <td data-label="Gate"><span class="gate-id">G-02</span><strong>East Concourse</strong></td>
+                                        <td data-label="Status"><span class="status-pill status-busy">Busy</span></td>
+                                        <td data-label="Crowd level"><span class="crowd-level crowd-high"><span></span>High · 82%</span></td>
+                                        <td data-label="Security assigned">Omar Patel <small>· 6 staff</small></td>
+                                    </tr>
+                                    <tr data-gate-status="Open">
+                                        <td data-label="Gate"><span class="gate-id">G-03</span><strong>South Plaza Gate</strong></td>
+                                        <td data-label="Status"><span class="status-pill status-open">Open</span></td>
+                                        <td data-label="Crowd level"><span class="crowd-level crowd-medium"><span></span>Moderate · 56%</span></td>
+                                        <td data-label="Security assigned">Ethan Cole <small>· 3 staff</small></td>
+                                    </tr>
+                                    <tr data-gate-status="Closed">
+                                        <td data-label="Gate"><span class="gate-id">G-04</span><strong>West Service Gate</strong></td>
+                                        <td data-label="Status"><span class="status-pill status-closed">Closed</span></td>
+                                        <td data-label="Crowd level"><span class="crowd-level crowd-low"><span></span>Low · 12%</span></td>
+                                        <td data-label="Security assigned">Nia Brooks <small>· 2 staff</small></td>
+                                    </tr>
+                                    <tr data-gate-status="Open">
+                                        <td data-label="Gate"><span class="gate-id">G-05</span><strong>VIP Entrance</strong></td>
+                                        <td data-label="Status"><span class="status-pill status-open">Open</span></td>
+                                        <td data-label="Crowd level"><span class="crowd-level crowd-low"><span></span>Low · 21%</span></td>
+                                        <td data-label="Security assigned">Maya Chen <small>· 2 staff</small></td>
+                                    </tr>
+                                    <tr data-gate-status="Busy">
+                                        <td data-label="Gate"><span class="gate-id">G-06</span><strong>Transit Gate</strong></td>
+                                        <td data-label="Status"><span class="status-pill status-busy">Busy</span></td>
+                                        <td data-label="Crowd level"><span class="crowd-level crowd-medium"><span></span>Moderate · 68%</span></td>
+                                        <td data-label="Security assigned">Omar Patel <small>· 4 staff</small></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section class="panel" id="incidents" aria-labelledby="incidents-title">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">RESPONSE QUEUE</p>
+                                <h2 id="incidents-title">Incident management</h2>
+                            </div>
+                            <span class="panel-count" id="incident-summary">3 active</span>
+                        </div>
+                        <div class="table-scroll">
+                            <table class="operations-table incident-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Incident</th>
+                                        <th scope="col">Priority</th>
+                                        <th scope="col">Response team</th>
+                                        <th scope="col">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="incident-table-body">
+                                    <tr data-incident-row data-status="In Progress">
+                                        <td data-label="Incident"><span class="incident-id">INC-204</span><strong>Medical assistance requested</strong><small>East Stand · Section 112</small></td>
+                                        <td data-label="Priority"><span class="priority-pill priority-high">High</span></td>
+                                        <td data-label="Response team">Medical team A</td>
+                                        <td data-label="Status">
+                                            <select class="status-select" aria-label="Update status for INC-204" data-status="In Progress">
+                                                <option>Reported</option><option selected>In Progress</option><option>Resolved</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr data-incident-row data-status="Reported">
+                                        <td data-label="Incident"><span class="incident-id">INC-203</span><strong>Queue buildup at entry</strong><small>East Concourse · Gate G-02</small></td>
+                                        <td data-label="Priority"><span class="priority-pill priority-critical">Critical</span></td>
+                                        <td data-label="Response team">Security team B</td>
+                                        <td data-label="Status">
+                                            <select class="status-select" aria-label="Update status for INC-203" data-status="Reported">
+                                                <option selected>Reported</option><option>In Progress</option><option>Resolved</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr data-incident-row data-status="Reported">
+                                        <td data-label="Incident"><span class="incident-id">INC-202</span><strong>Spill reported in aisle</strong><small>North Concourse · Aisle 4</small></td>
+                                        <td data-label="Priority"><span class="priority-pill priority-medium">Medium</span></td>
+                                        <td data-label="Response team">Cleaning team 1</td>
+                                        <td data-label="Status">
+                                            <select class="status-select" aria-label="Update status for INC-202" data-status="Reported">
+                                                <option selected>Reported</option><option>In Progress</option><option>Resolved</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr data-incident-row data-status="Resolved">
+                                        <td data-label="Incident"><span class="incident-id">INC-201</span><strong>Lost property assistance</strong><small>Guest services · West Lobby</small></td>
+                                        <td data-label="Priority"><span class="priority-pill priority-low">Low</span></td>
+                                        <td data-label="Response team">Guest services</td>
+                                        <td data-label="Status">
+                                            <select class="status-select" aria-label="Update status for INC-201" data-status="Resolved">
+                                                <option>Reported</option><option>In Progress</option><option selected>Resolved</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="panel-footnote">Changing an incident status updates this local demonstration only.</p>
+                    </section>
+                </div>
+
+                <section class="panel" id="staff" aria-labelledby="staff-title">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">SHIFT ROSTER</p>
+                            <h2 id="staff-title">Staff management</h2>
+                        </div>
+                        <span class="panel-count">12 team members</span>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="operations-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Staff member</th>
+                                    <th scope="col">Team</th>
+                                    <th scope="col">Assigned zone</th>
+                                    <th scope="col">Availability</th>
+                                </tr>
+                            </thead>
+                            <tbody id="staff-table-body">
+                                <tr data-team="security"><td data-label="Staff member"><strong>Maya Chen</strong></td><td data-label="Team"><span class="team-tag team-security">Security</span></td><td data-label="Assigned zone">North Gate · G-01</td><td data-label="Availability"><span class="availability available">Available</span></td></tr>
+                                <tr data-team="security"><td data-label="Staff member"><strong>Omar Patel</strong></td><td data-label="Team"><span class="team-tag team-security">Security</span></td><td data-label="Assigned zone">East Concourse · G-02</td><td data-label="Availability"><span class="availability assigned">Assigned</span></td></tr>
+                                <tr data-team="security"><td data-label="Staff member"><strong>Ethan Cole</strong></td><td data-label="Team"><span class="team-tag team-security">Security</span></td><td data-label="Assigned zone">South Plaza · G-03</td><td data-label="Availability"><span class="availability available">Available</span></td></tr>
+                                <tr data-team="security"><td data-label="Staff member"><strong>Nia Brooks</strong></td><td data-label="Team"><span class="team-tag team-security">Security</span></td><td data-label="Assigned zone">West Service Gate</td><td data-label="Availability"><span class="availability break">On break</span></td></tr>
+                                <tr data-team="medical"><td data-label="Staff member"><strong>Dr. Lena Park</strong></td><td data-label="Team"><span class="team-tag team-medical">Medical</span></td><td data-label="Assigned zone">First aid · East Stand</td><td data-label="Availability"><span class="availability assigned">Responding</span></td></tr>
+                                <tr data-team="medical"><td data-label="Staff member"><strong>Sam Rivera</strong></td><td data-label="Team"><span class="team-tag team-medical">Medical</span></td><td data-label="Assigned zone">Medical post · Gate G-03</td><td data-label="Availability"><span class="availability available">Available</span></td></tr>
+                                <tr data-team="medical"><td data-label="Staff member"><strong>Noah Kim</strong></td><td data-label="Team"><span class="team-tag team-medical">Medical</span></td><td data-label="Assigned zone">North concourse clinic</td><td data-label="Availability"><span class="availability available">Available</span></td></tr>
+                                <tr data-team="cleaning"><td data-label="Staff member"><strong>Tara Singh</strong></td><td data-label="Team"><span class="team-tag team-cleaning">Cleaning</span></td><td data-label="Assigned zone">North Concourse · Aisle 4</td><td data-label="Availability"><span class="availability assigned">Responding</span></td></tr>
+                                <tr data-team="cleaning"><td data-label="Staff member"><strong>Leo Martin</strong></td><td data-label="Team"><span class="team-tag team-cleaning">Cleaning</span></td><td data-label="Assigned zone">South Plaza facilities</td><td data-label="Availability"><span class="availability available">Available</span></td></tr>
+                                <tr data-team="ground"><td data-label="Staff member"><strong>Ava Ortiz</strong></td><td data-label="Team"><span class="team-tag team-ground">Ground operations</span></td><td data-label="Assigned zone">Field perimeter</td><td data-label="Availability"><span class="availability available">Available</span></td></tr>
+                                <tr data-team="ground"><td data-label="Staff member"><strong>Jae Wilson</strong></td><td data-label="Team"><span class="team-tag team-ground">Ground operations</span></td><td data-label="Assigned zone">West service tunnel</td><td data-label="Availability"><span class="availability assigned">Assigned</span></td></tr>
+                                <tr data-team="ground"><td data-label="Staff member"><strong>Victor Stone</strong></td><td data-label="Team"><span class="team-tag team-ground">Ground operations</span></td><td data-label="Assigned zone">Loading dock · North</td><td data-label="Availability"><span class="availability available">Available</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <div class="secondary-grid">
+                    <section class="panel" id="emergency" aria-labelledby="emergency-title">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">SAFETY & RESPONSE</p>
+                                <h2 id="emergency-title">Emergency response</h2>
+                            </div>
+                            <span class="status-pill status-open">Ready</span>
+                        </div>
+                        <div class="response-group">
+                            <h3>Emergency exits</h3>
+                            <ul class="status-list">
+                                <li><span><strong>North exits</strong><small>Upper concourse · E-01, E-02</small></span><span class="status-pill status-open">Clear</span></li>
+                                <li><span><strong>East exits</strong><small>East stand · E-03, E-04</small></span><span class="status-pill status-busy">Monitored</span></li>
+                                <li><span><strong>South exit</strong><small>South plaza · E-05</small></span><span class="status-pill status-open">Clear</span></li>
+                            </ul>
+                        </div>
+                        <div class="response-group">
+                            <h3>Medical assistance locations</h3>
+                            <ul class="status-list">
+                                <li><span><strong>First aid station</strong><small>East Stand · Section 112</small></span><span class="status-pill status-busy">Responding</span></li>
+                                <li><span><strong>Medical post</strong><small>South Gate · G-03</small></span><span class="status-pill status-open">Available</span></li>
+                            </ul>
+                        </div>
+                        <div class="team-readiness">
+                            <span><span class="status-dot" aria-hidden="true"></span> Response teams</span>
+                            <strong>3 available <small>· 1 responding</small></strong>
+                        </div>
+                    </section>
+
+                    <section class="panel" id="facilities" aria-labelledby="facilities-title">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">VENUE SERVICES</p>
+                                <h2 id="facilities-title">Facility management</h2>
+                            </div>
+                            <span class="panel-count">6 monitored assets</span>
+                        </div>
+                        <div class="table-scroll">
+                            <table class="operations-table facility-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Facility</th>
+                                        <th scope="col">Location</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Operations note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td data-label="Facility"><strong>Washrooms</strong></td><td data-label="Location">North Concourse</td><td data-label="Status"><span class="status-pill status-open">Available</span></td><td data-label="Operations note">Routine checks complete</td></tr>
+                                    <tr><td data-label="Facility"><strong>Washrooms</strong></td><td data-label="Location">East Stand · Level 2</td><td data-label="Status"><span class="status-pill status-busy">Maintenance</span></td><td data-label="Operations note">Cleaning team assigned</td></tr>
+                                    <tr><td data-label="Facility"><strong>Food outlets</strong></td><td data-label="Location">East Concourse</td><td data-label="Status"><span class="status-pill status-busy">Busy</span></td><td data-label="Operations note">Queue monitoring active</td></tr>
+                                    <tr><td data-label="Facility"><strong>Parking</strong></td><td data-label="Location">Lot P1 · North</td><td data-label="Status"><span class="status-pill status-open">Available</span></td><td data-label="Operations note">Spaces available</td></tr>
+                                    <tr><td data-label="Facility"><strong>Medical station</strong></td><td data-label="Location">South Gate · G-03</td><td data-label="Status"><span class="status-pill status-open">Staffed</span></td><td data-label="Operations note">Medical team on site</td></tr>
+                                    <tr><td data-label="Facility"><strong>Emergency exit</strong></td><td data-label="Location">North Concourse · E-01</td><td data-label="Status"><span class="status-pill status-open">Clear</span></td><td data-label="Operations note">Route inspection complete</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+                <footer class="page-footer">Smart Stadium Operations · Demonstration interface · No live backend connection</footer>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

@@ -448,6 +448,22 @@ const FACILITY_TYPES = [
     { id: "security", emoji: "🛡️", label: "Security", shortLabel: "Security", description: "Security screening and guest assistance.", color: "#64748b", width: 120 }
 ];
 
+const MOBILE_FACILITY_MARKER_POSITIONS = {
+    "sports-stadium": {
+        food: { x: 214, y: 64 },
+        entry: { x: 580, y: 64 },
+        emergency: { x: 550, y: 436 },
+        merchandise: { x: 340, y: 64 }
+    },
+    "indoor-arena": {
+        emergency: { x: 550, y: 436 },
+        merchandise: { x: 340, y: 64 }
+    },
+    auditorium: {
+        entry: { x: 560, y: 436 }
+    }
+};
+
 // ==========================================================================
 // 2. SIMULATOR STATE & DOM REFERENCES
 // ==========================================================================
@@ -862,6 +878,66 @@ function renderFacilityMarkers(preset) {
             showFacilityPopup(facility, marker, zone);
         });
         dom.facilityMarkerLayer.appendChild(marker);
+    });
+    positionFacilityMarkers(preset);
+}
+
+function positionFacilityMarkers(preset) {
+    const layerRect = dom.facilityMarkerLayer.getBoundingClientRect();
+    const stageRect = dom.facilityMarkerLayer.closest(".map-stage").getBoundingClientRect();
+    const isMobile = window.matchMedia("(max-width: 700px)").matches;
+    const constrainToMap = window.matchMedia("(max-width: 900px)").matches;
+    const mobilePositions = MOBILE_FACILITY_MARKER_POSITIONS[state.currentVenueKey] || {};
+
+    FACILITY_TYPES.forEach((facility) => {
+        const marker = dom.facilityMarkerLayer.querySelector(
+            `.facility-marker[data-facility-id="${facility.id}"]`
+        );
+        if (!marker) return;
+
+        const defaultPosition = preset.facilityPositions[facility.id];
+        const mobilePosition = isMobile ? mobilePositions[facility.id] : null;
+        const centerX = mobilePosition?.x ?? defaultPosition.x + facility.width / 2;
+        const centerY = mobilePosition?.y ?? defaultPosition.y + 19;
+        const markerRect = marker.getBoundingClientRect();
+        const halfWidth = markerRect.width / 2 + 1;
+        const halfHeight = markerRect.height / 2 + 1;
+
+        if (isMobile) {
+            const left = Math.max(
+                halfWidth,
+                Math.min(layerRect.width - halfWidth, (centerX / 800) * layerRect.width)
+            );
+            const top = Math.max(
+                halfHeight,
+                Math.min(layerRect.height - halfHeight, (centerY / 500) * layerRect.height)
+            );
+            marker.style.left = `${left}px`;
+            marker.style.top = `${top}px`;
+        } else {
+            const left = (centerX / 800) * layerRect.width;
+            const top = (centerY / 500) * layerRect.height;
+            const minLeft = constrainToMap
+                ? halfWidth
+                : stageRect.left - layerRect.left + halfWidth;
+            const maxLeft = constrainToMap
+                ? layerRect.width - halfWidth
+                : stageRect.right - layerRect.left - halfWidth;
+            const minTop = constrainToMap
+                ? halfHeight
+                : stageRect.top - layerRect.top + halfHeight;
+            const maxTop = constrainToMap
+                ? layerRect.height - halfHeight
+                : stageRect.bottom - layerRect.top - halfHeight;
+
+            if (left < minLeft || left > maxLeft || top < minTop || top > maxTop) {
+                marker.style.left = `${Math.max(minLeft, Math.min(maxLeft, left))}px`;
+                marker.style.top = `${Math.max(minTop, Math.min(maxTop, top))}px`;
+            } else {
+                marker.style.left = `${(centerX / 800) * 100}%`;
+                marker.style.top = `${(centerY / 500) * 100}%`;
+            }
+        }
     });
 }
 
@@ -1503,10 +1579,79 @@ function initSimulator() {
     window.addEventListener("resize", () => {
         hideTooltip();
         hideFacilityPopup();
+        positionFacilityMarkers(VENUE_PRESETS[state.currentVenueKey]);
     });
 
     renderFacilityLegend();
     loadVenue(state.currentVenueKey);
 }
 
-initSimulator();
+const apiBaseUrl = document
+    .querySelector('meta[name="api-base-url"]')
+    ?.getAttribute("content")
+    ?.trim()
+    .replace(/\/+$/, "");
+const logoutButton = document.getElementById("dashboard-logout");
+
+async function logoutUser() {
+    logoutButton.disabled = true;
+    try {
+        const response = await fetch(`${apiBaseUrl}/auth/logout`, {
+            method: "POST",
+            credentials: "include"
+        });
+        if (response.status !== 204) {
+            throw new Error(`Logout failed with HTTP ${response.status}.`);
+        }
+        window.location.replace("auth/user-login.html");
+    } catch (error) {
+        console.error("Could not log out of Smart Stadium.", error);
+        window.alert("Sign out failed. Please try again.");
+        logoutButton.disabled = false;
+    }
+}
+
+logoutButton.addEventListener("click", logoutUser);
+
+async function initializeAuthenticatedUserDashboard() {
+    if (!apiBaseUrl) {
+        throw new Error("The authentication API base URL is not configured.");
+    }
+
+    let response;
+    try {
+        response = await fetch(`${apiBaseUrl}/auth/me`, {
+            credentials: "include"
+        });
+    } catch {
+        throw new Error("Could not reach the authentication service.");
+    }
+
+    if (response.status === 401) {
+        window.location.replace("auth/user-login.html");
+        return;
+    }
+    if (!response.ok) {
+        throw new Error(`Session verification failed with HTTP ${response.status}.`);
+    }
+
+    const account = await response.json();
+    if (account.role === "CONTROLLER") {
+        window.location.replace("auth/controller-login.html");
+        return;
+    }
+    if (account.role !== "USER") {
+        window.location.replace("auth/user-login.html");
+        return;
+    }
+
+    document.body.classList.remove("auth-pending");
+    logoutButton.disabled = false;
+    initSimulator();
+}
+
+initializeAuthenticatedUserDashboard().catch((error) => {
+    console.error("Could not verify access to the User Dashboard.", error);
+    window.alert("Unable to verify your session. Please try again.");
+    window.location.replace("auth/user-login.html");
+});
