@@ -1,32 +1,71 @@
-from fastapi.middleware.cors import CORSMiddleware
 
 import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from backend.simulator.engine import CrowdSimulator
 from backend.api.connection_manager import ConnectionManager
+
+from backend.intelligence.congestion import CongestionDetector
+from backend.intelligence.forecast import CrowdForecaster
+from backend.intelligence.alerts import AlertGenerator
 
 
 # Shared application objects
 simulator = CrowdSimulator()
 manager = ConnectionManager()
 
+congestion_detector = CongestionDetector()
+crowd_forecaster = CrowdForecaster()
+alert_generator = AlertGenerator()
+
 simulation_task = None
+
+# Initial data for newly connected clients
+latest_update = {
+    "event": "stadium_update",
+    "data": simulator.get_snapshot(),
+    "congestion": {},
+    "forecasts": {},
+    "alerts": []
+}
 
 
 async def simulation_loop():
-    """Continuously update and broadcast stadium data."""
+    """Update stadium data and broadcast intelligence every 2 seconds."""
+
+    global latest_update
 
     while True:
+        # 1. Simulate crowd movement
         snapshot = simulator.step()
 
-        await manager.broadcast({
+        # 2. Detect current congestion
+        congestion = congestion_detector.analyze(snapshot)
+
+        # 3. Forecast occupancy 5 minutes ahead
+        forecasts = crowd_forecaster.forecast(snapshot)
+
+        # 4. Generate operator alerts
+        alerts = alert_generator.generate(
+            congestion,
+            forecasts
+        )
+
+        # 5. Combine all results
+        latest_update = {
             "event": "stadium_update",
-            "data": snapshot
-        })
+            "data": snapshot,
+            "congestion": congestion,
+            "forecasts": forecasts,
+            "alerts": alerts
+        }
+
+        # 6. Broadcast to connected clients
+        await manager.broadcast(latest_update)
 
         await asyncio.sleep(2)
 
@@ -118,14 +157,10 @@ async def stadium_websocket(websocket: WebSocket):
     await manager.connect(websocket)
 
     try:
-        # Immediately send the current state.
-        await websocket.send_json({
-            "event": "stadium_update",
-            "data": simulator.get_snapshot()
-        })
+        # Send the latest complete update immediately.
+        await websocket.send_json(latest_update)
 
         while True:
-            # Keep connection alive and detect disconnections.
             await websocket.receive_text()
 
     except WebSocketDisconnect:
