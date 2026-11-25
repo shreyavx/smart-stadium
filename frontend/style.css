@@ -41,6 +41,10 @@ body {
     min-height: 100vh;
 }
 
+body.auth-pending {
+    visibility: hidden;
+}
+
 /* =========================================
    Top Navigation Bar
    ========================================= */
@@ -117,6 +121,33 @@ body {
     border-radius: 999px;
     font-size: 13px;
     font-weight: 600;
+}
+
+.dashboard-logout {
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: var(--bg-inset);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.dashboard-logout:hover:not(:disabled) {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+}
+
+.dashboard-logout:focus-visible {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: 2px;
+}
+
+.dashboard-logout:disabled {
+    cursor: wait;
+    opacity: 0.65;
 }
 
 /* =========================================
@@ -1291,7 +1322,20 @@ body {
    Responsive Breakpoints (Tablet & Mobile)
    ========================================= */
 @media (max-width: 1120px) {
+    .dashboard {
+        padding: 24px 24px 40px;
+    }
+
     .panel-map,
+    .panel-alerts,
+    .panel-analytics,
+    .panel-predictions,
+    .panel-routes,
+    .main-grid,
+    .secondary-grid,
+    .analytics-grid,
+    .chart-card,
+    .map-stage,
     .map-workspace,
     .map-toolbar,
     .venue-selector-group {
@@ -1299,71 +1343,324 @@ body {
     }
 
     .venue-selector-group select {
+        min-width: 0;
         max-width: 100%;
     }
 
     .stats {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .main-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .secondary-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .analytics-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .map-workspace {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .map-placeholder {
         min-height: 320px;
     }
+
+    .chart-canvas-wrap {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 900px) {
+    .navbar {
+        padding-right: 24px;
+        padding-left: 24px;
+    }
+
+    .venue-selector-group select,
+    .sim-controls .btn {
+        min-height: 44px;
+    }
 }
 
 @media (max-width: 700px) {
     .navbar {
-        padding: 16px 20px;
+        padding: 14px 12px;
         flex-direction: column;
         align-items: flex-start;
+        gap: 12px;
+    }
+
+    .brand {
+        gap: 10px;
+    }
+
+    .brand-logo {
+        width: 36px;
+        height: 36px;
+    }
+
+    .navbar h1 {
+        font-size: clamp(18px, 5vw, 21px);
+    }
+
+    .brand-subtitle {
+        font-size: 12px;
+    }
+
+    .nav-meta {
+        width: 100%;
+        justify-content: space-between;
+        gap: 6px;
+    }
+
+    .datetime-display,
+    .status {
+        padding: 6px 8px;
+        font-size: 11px;
     }
 
     .dashboard {
-        padding: 20px;
+        padding: 16px 12px 32px;
     }
 
     .dashboard-header {
         flex-direction: column;
         align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .dashboard-header p {
+        font-size: 13px;
+    }
+
+    .mode-tag {
+        max-width: 100%;
+        white-space: normal;
     }
 
     .stats {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .card {
+        min-width: 0;
+        padding: 14px 12px;
+    }
+
+    .card h3 {
+        font-size: 11px;
+        margin-bottom: 8px;
+    }
+
+    .card p {
+        font-size: clamp(22px, 7vw, 28px);
+    }
+
+    .card-note {
+        font-size: 11px;
+    }
+
+    .main-grid,
+    .secondary-grid {
+        gap: 14px;
+        margin-bottom: 16px;
+    }
+
+    .panel {
+        min-width: 0;
+        padding: 16px 12px;
+    }
+
+    .panel-header {
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .panel h2 {
+        font-size: 17px;
+    }
+
+    .map-toolbar {
+        align-items: stretch;
+        gap: 10px;
+        padding: 10px;
+        margin-bottom: 12px;
+    }
+
+    .venue-selector-group {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
+        width: 100%;
+    }
+
+    .venue-selector-group select {
+        width: 100%;
+        min-height: 44px;
+        padding: 10px;
+        font-size: 12px;
+    }
+
+    .sim-controls {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+    }
+
+    .sim-controls .btn {
+        min-width: 0;
+        min-height: 44px;
+        padding: 7px 4px;
+        font-size: 11px;
+        line-height: 1.2;
+        text-align: center;
+        white-space: normal;
+    }
+
+    .sim-controls .badge {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+
+    .map-workspace {
+        gap: 12px;
+    }
+
+    .map-stage {
+        gap: 8px;
+        padding: 8px;
+    }
+
+    .facility-marker-layer {
+        top: 8px;
+        left: 8px;
+        width: calc(100% - 16px);
+    }
+
+    .map-facility-popup {
+        width: min(240px, calc(100% - 16px));
+        max-height: calc(100% - 16px);
+        overflow-y: auto;
+        padding: 12px;
+    }
+
+    .map-facility-popup strong {
+        padding-right: 36px;
+    }
+
+    .facility-popup-close {
+        top: 4px;
+        right: 4px;
+        display: grid;
+        min-width: 36px;
+        min-height: 36px;
+        place-items: center;
+    }
+
+    .map-tooltip {
+        width: min(200px, calc(100% - 16px));
+        min-width: min(170px, calc(100% - 16px));
+        max-width: calc(100% - 16px);
     }
 
     .facility-marker {
-        width: 28px;
-        height: 28px;
-        min-height: 28px;
+        width: 40px;
+        height: 40px;
+        min-height: 40px;
         padding: 0;
         justify-content: center;
+        touch-action: manipulation;
+        border-width: 2px;
     }
 
     .facility-marker-emoji {
-        width: 22px;
-        height: 22px;
-        flex-basis: 22px;
-        font-size: 13px;
+        width: 26px;
+        height: 26px;
+        flex-basis: 26px;
+        font-size: 14px;
     }
 
     .facility-marker-label {
         display: none;
+    }
+
+    .zone-details-card {
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .zone-details-card h3,
+    .details-desc,
+    .details-flow p {
+        overflow-wrap: anywhere;
+    }
+
+    .metric-box {
+        min-width: 0;
+        padding: 8px;
+    }
+
+    .metric-box strong {
+        font-size: 14px;
+    }
+
+    .analytics-grid {
+        gap: 12px;
+    }
+
+    .chart-card {
+        padding: 12px;
+    }
+
+    .chart-canvas-wrap {
+        height: 220px;
+    }
+
+    .chart-card-header h3 {
+        font-size: 14px;
+    }
+
+    .chart-caption {
+        font-size: 11px;
+    }
+
+    .panel-list,
+    .alert-item,
+    .prediction-item,
+    .route-item {
+        min-width: 0;
+    }
+
+    .item-top {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 6px 8px;
+    }
+
+    .item-top strong,
+    .alert-item p,
+    .prediction-item p,
+    .route-item p {
+        overflow-wrap: anywhere;
+    }
+
+    .pill {
+        max-width: 100%;
+        white-space: normal;
+    }
+
+    .route-path {
+        overflow-wrap: anywhere;
     }
 
     .map-key-symbols,
@@ -1374,5 +1671,71 @@ body {
     .facility-key-item {
         font-size: 10px;
     }
+}
 
+@media (max-width: 380px) {
+    .navbar {
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    .dashboard {
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    .panel {
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    .card {
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    .map-stage {
+        padding: 6px;
+    }
+
+    .facility-marker-layer {
+        top: 6px;
+        left: 6px;
+        width: calc(100% - 12px);
+    }
+
+    .sim-controls {
+        gap: 6px;
+    }
+
+    .sim-controls .btn {
+        font-size: 10px;
+    }
+
+    .facility-marker {
+        width: 34px;
+        height: 34px;
+        min-height: 34px;
+    }
+
+    .facility-marker-emoji {
+        width: 24px;
+        height: 24px;
+        flex-basis: 24px;
+    }
+}
+
+@media (max-width: 340px) {
+    .facility-marker {
+        width: 32px;
+        height: 32px;
+        min-height: 32px;
+    }
+
+    .facility-marker-emoji {
+        width: 22px;
+        height: 22px;
+        flex-basis: 22px;
+        font-size: 12px;
+    }
 }

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="api-base-url" content="http://127.0.0.1:8000">
+    <meta name="theme-color" content="#071426">
+    <title>Visitor Sign In | Smart Stadium</title>
+    <link rel="stylesheet" href="user-login.css">
+    <script src="user-login.js" defer></script>
+</head>
+<body>
+    <div class="auth-page" data-auth-mode="login" data-resend-cooldown="60">
+        <aside class="welcome-panel">
+            <a class="brand" href="../index.html" aria-label="Smart Stadium dashboard">
+                <span class="brand-mark" aria-hidden="true">SS</span>
+                <span class="brand-name">
+                    <strong>SMART STADIUM</strong>
+                    <small>REAL-TIME CROWD INTELLIGENCE</small>
+                </span>
+            </a>
+
+            <div class="welcome-copy">
+                <p class="eyebrow">WELCOME BACK</p>
+                <h2>Your stadium<br>experience awaits.</h2>
+                <p>Sign in with your registered phone number to continue to the Smart Stadium visitor dashboard.</p>
+            </div>
+
+            <div class="stadium-art" aria-hidden="true">
+                <span class="art-ring art-ring-outer"></span>
+                <span class="art-ring art-ring-inner"></span>
+                <span class="art-pitch">
+                    <span class="pitch-midline"></span>
+                    <span class="pitch-circle"></span>
+                </span>
+                <span class="art-light art-light-one"></span>
+                <span class="art-light art-light-two"></span>
+            </div>
+
+            <p class="welcome-footnote"><span class="status-dot"></span> Your matchday information, all in one place</p>
+        </aside>
+
+        <main class="form-region">
+            <section class="auth-card" aria-labelledby="page-title">
+                <div class="mobile-brand">
+                    <span class="brand-mark" aria-hidden="true">SS</span>
+                    <strong>SMART STADIUM</strong>
+                </div>
+
+                <p class="eyebrow">VISITOR SIGN IN</p>
+                <h1 id="page-title">Welcome back</h1>
+                <p class="intro-copy">Enter your registered phone number and we will send you a one-time sign-in code.</p>
+
+                <div id="phone-step" class="auth-step">
+                    <form id="phone-form" novalidate>
+                        <label for="phone-number">Phone number</label>
+                        <input
+                            id="phone-number"
+                            name="phone_number"
+                            type="tel"
+                            inputmode="tel"
+                            autocomplete="tel"
+                            placeholder="+1 415 555 0123"
+                            maxlength="20"
+                            aria-describedby="phone-hint phone-error"
+                            required
+                        >
+                        <p id="phone-hint" class="field-hint">Include + and your country code, for example +14155550123.</p>
+                        <p id="phone-error" class="field-error" aria-live="polite"></p>
+
+                        <button id="request-otp" class="primary-button" type="submit">
+                            <span>Send sign-in code</span>
+                            <span class="button-arrow" aria-hidden="true">&gt;</span>
+                        </button>
+                    </form>
+                </div>
+
+                <div id="otp-step" class="auth-step" hidden>
+                    <form id="otp-form" novalidate>
+                        <label for="otp-code">Verification code</label>
+                        <input
+                            id="otp-code"
+                            name="code"
+                            type="text"
+                            inputmode="numeric"
+                            autocomplete="one-time-code"
+                            pattern="[0-9]{6}"
+                            maxlength="6"
+                            placeholder="6 digits"
+                            aria-describedby="otp-hint otp-error"
+                            required
+                        >
+                        <p id="otp-hint" class="field-hint">Enter the 6-digit code sent to <strong id="phone-display"></strong>.</p>
+                        <p id="otp-error" class="field-error" aria-live="polite"></p>
+
+                        <button id="verify-otp" class="primary-button" type="submit">
+                            <span>Sign in securely</span>
+                            <span class="button-arrow" aria-hidden="true">&gt;</span>
+                        </button>
+                    </form>
+
+                    <div class="otp-actions">
+                        <button id="resend-otp" class="text-button" type="button" disabled>Resend code in 60s</button>
+                        <button id="change-phone" class="text-button" type="button">Use a different number</button>
+                    </div>
+                </div>
+
+                <p id="form-message" class="form-message" role="status" aria-live="polite" hidden></p>
+
+                <p class="auth-switch">
+                    New to Smart Stadium?
+                    <a href="user-signup.html">Create a visitor account</a>
+                </p>
+                <p class="security-note"><span aria-hidden="true"></span> Your sign-in is verified securely by Smart Stadium.</p>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

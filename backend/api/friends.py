@@ -1,10 +1,14 @@
 
 from fastapi import (
     APIRouter,
+    Depends,
     HTTPException,
-    Header,
     WebSocket,
     WebSocketDisconnect
+)
+from backend.auth.dependencies import (
+    authenticate_websocket,
+    get_authenticated_user_id,
 )
 
 from backend.friends.realtime import (
@@ -43,24 +47,10 @@ class JoinGroupRequest(BaseModel):
     invite_code: str
 
 
-# Temporary demo identity.
-# Replace this with your project's real authentication
-# before using the feature with real users.
-
-def get_demo_user(x_user_id: str = Header(..., alias="X-User-ID")):
-    if not x_user_id.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="User ID cannot be empty."
-        )
-
-    return x_user_id.strip()
-
-
 @router.post("/create")
 def create_new_group(
     request: CreateGroupRequest,
-    user_id: str = Header(..., alias="X-User-ID")
+    user_id: str = Depends(get_authenticated_user_id),
 ):
     try:
         result = create_group(request.group_name, user_id)
@@ -79,7 +69,7 @@ def create_new_group(
 @router.post("/join")
 def join_existing_group(
     request: JoinGroupRequest,
-    user_id: str = Header(..., alias="X-User-ID")
+    user_id: str = Depends(get_authenticated_user_id),
 ):
     try:
         result = join_group(request.invite_code, user_id)
@@ -98,7 +88,7 @@ def join_existing_group(
 @router.get("/{group_id}/members")
 def view_group_members(
     group_id: int,
-    user_id: str = Header(..., alias="X-User-ID")
+    user_id: str = Depends(get_authenticated_user_id),
 ):
     try:
         members = get_group_members(group_id, user_id)
@@ -121,7 +111,7 @@ def view_group_members(
 @router.post("/{group_id}/sharing/start")
 def start_location_sharing(
     group_id: int,
-    user_id: str = Header(..., alias="X-User-ID")
+    user_id: str = Depends(get_authenticated_user_id),
 ):
     try:
         return set_location_sharing(
@@ -143,7 +133,7 @@ def start_location_sharing(
 @router.post("/{group_id}/sharing/stop")
 def stop_location_sharing(
     group_id: int,
-    user_id: str = Header(..., alias="X-User-ID")
+    user_id: str = Depends(get_authenticated_user_id),
 ):
     try:
         return set_location_sharing(
@@ -165,7 +155,7 @@ def stop_location_sharing(
 @router.get("/{group_id}/sharing/status")
 def check_location_sharing(
     group_id: int,
-    user_id: str = Header(..., alias="X-User-ID")
+    user_id: str = Depends(get_authenticated_user_id),
 ):
     try:
         return get_location_sharing_status(
@@ -187,7 +177,7 @@ def check_location_sharing(
 @router.post("/{group_id}/locations/simulate")
 async def simulate_friend_location(
     group_id: int,
-    user_id: str = Header(..., alias="X-User-ID")
+    user_id: str = Depends(get_authenticated_user_id),
 ):
     try:
         result = simulate_next_location(group_id, user_id)
@@ -227,7 +217,7 @@ async def simulate_friend_location(
 @router.get("/{group_id}/locations")
 def view_friend_locations(
     group_id: int,
-    user_id: str = Header(..., alias="X-User-ID")
+    user_id: str = Depends(get_authenticated_user_id),
 ):
     try:
         locations = get_group_locations(group_id, user_id)
@@ -254,10 +244,20 @@ async def friend_live_updates(
     group_id: int,
     user_id: str
 ):
+    principal = await authenticate_websocket(
+        websocket,
+        ("USER", "CONTROLLER"),
+    )
+    if principal is None:
+        return
+    if user_id != principal.user_id:
+        await websocket.close(code=1008, reason="User ID does not match session.")
+        return
+
     connected = await connect_to_group(
         websocket,
         group_id,
-        user_id
+        principal.user_id
     )
 
     if not connected:
@@ -265,7 +265,7 @@ async def friend_live_updates(
 
     try:
         # Send the currently shared locations when a user connects
-        locations = get_group_locations(group_id, user_id)
+        locations = get_group_locations(group_id, principal.user_id)
 
         await websocket.send_json({
             "type": "initial_locations",
