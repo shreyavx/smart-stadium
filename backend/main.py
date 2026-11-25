@@ -12,6 +12,7 @@ from backend.api.connection_manager import ConnectionManager
 from backend.intelligence.congestion import CongestionDetector
 from backend.intelligence.forecast import CrowdForecaster
 from backend.intelligence.alerts import AlertGenerator
+from backend.api.friends import router as friends_router
 
 
 # Shared application objects
@@ -92,6 +93,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+app.include_router(friends_router)
 
 
 app.add_middleware(
