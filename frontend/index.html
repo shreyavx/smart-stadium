@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Stadium Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Top Navigation -->
+    <header class="navbar">
+        <div class="brand">
+            <div class="brand-logo" aria-hidden="true">SS</div>
+            <div class="brand-text">
+                <h1>SMART STADIUM</h1>
+                <span class="brand-subtitle">Real-Time Crowd Intelligence</span>
+            </div>
+        </div>
+
+        <div class="nav-meta">
+            <span class="datetime-display" id="current-datetime">Live Clock Ready</span>
+            <span class="status" id="system-status">● System Online</span>
+        </div>
+    </header>
+
+    <!-- Main Dashboard -->
+    <main class="dashboard">
+
+        <div class="dashboard-header">
+            <div>
+                <h2>Stadium Overview</h2>
+                <p>Live Crowd Density, Bottleneck Forecasting &amp; Flow Control</p>
+            </div>
+            <span class="mode-tag">UI Preview • Demonstration Data</span>
+        </div>
+
+        <!-- Overview Statistics Cards -->
+        <section class="stats" aria-label="Overview Statistics">
+
+            <div class="card card-accent">
+                <h3>Total Crowd</h3>
+                <p id="total-crowd">25,000</p>
+                <span class="card-note">Current stadium occupancy</span>
+            </div>
+
+            <div class="card card-danger">
+                <h3>Congested Zones</h3>
+                <p id="congested-zones">03</p>
+                <span class="card-note">Zones above safe threshold</span>
+            </div>
+
+            <div class="card card-success">
+                <h3>Safe Zones</h3>
+                <p id="safe-zones">08</p>
+                <span class="card-note">Normal crowd flow</span>
+            </div>
+
+            <div class="card card-warning">
+                <h3>Predicted Bottlenecks</h3>
+                <p id="predicted-bottlenecks">02</p>
+                <span class="card-note">Expected within 5 minutes</span>
+            </div>
+
+        </section>
+
+        <!-- Primary Workspace: Stadium Map (Main Focus) + Live Alerts -->
+        <section class="main-grid">
+
+            <!-- Interactive Stadium Map Panel -->
+            <section class="panel panel-map" aria-labelledby="map-heading">
+                <div class="panel-header">
+                    <div>
+                        <h2 id="map-heading">Universal Smart Venue Simulator</h2>
+                        <p class="panel-subtitle" id="venue-subtitle">Interactive crowd map &amp; congestion
+                            simulation</p>
+                    </div>
+
+                    <div class="legend" aria-label="Density Color Legend">
+                        <span class="legend-item"><span class="dot dot-low"></span>Low (&lt;50%)</span>
+                        <span class="legend-item"><span class="dot dot-medium"></span>Medium (50-74%)</span>
+                        <span class="legend-item"><span class="dot dot-high"></span>High (75-89%)</span>
+                        <span class="legend-item"><span class="dot dot-critical"></span>Critical (90%+)</span>
+                    </div>
+                </div>
+
+                <!-- Venue Selector & Simulation Controls -->
+                <div class="map-toolbar">
+                    <div class="venue-selector-group">
+                        <label for="venue-select">Venue Type:</label>
+                        <select id="venue-select" aria-label="Select Venue Type">
+                            <option value="sports-stadium">1. Sports Stadium (Cricket / Football)</option>
+                            <option value="outdoor-concert">2. Outdoor Concert Ground</option>
+                            <option value="indoor-arena">3. Indoor Concert Arena</option>
+                            <option value="auditorium">4. Auditorium</option>
+                            <option value="exhibition-ground">5. Exhibition Ground</option>
+                        </select>
+                    </div>
+
+                    <div class="sim-controls">
+                        <button type="button" class="btn btn-primary" id="sim-start-btn">Start Simulation</button>
+                        <button type="button" class="btn btn-secondary" id="sim-pause-btn" disabled>Pause</button>
+                        <button type="button" class="btn btn-outline" id="sim-reset-btn">Reset</button>
+                        <span class="badge badge-neutral" id="sim-status-badge">Ready (Paused)</span>
+                    </div>
+                </div>
+
+                <!-- Map Stage + Zone Details Sidebar -->
+                <div class="map-workspace">
+                    <div class="map-stage" id="stadium-map-container">
+                        <svg id="venue-svg" viewBox="0 0 800 500" role="img"
+                            aria-label="Interactive venue crowd density map"></svg>
+                        <div class="facility-marker-layer" id="facility-marker-layer"
+                            aria-label="Venue facility locations"></div>
+                        <div class="map-tooltip" id="map-tooltip" hidden></div>
+                        <div class="map-facility-popup" id="map-facility-popup" role="group"
+                            aria-label="Facility information" aria-live="polite" hidden>
+                            <button type="button" class="facility-popup-close" id="facility-popup-close"
+                                aria-label="Close facility information">×</button>
+                            <strong id="facility-popup-title"></strong>
+                            <span class="facility-popup-location" id="facility-popup-location"></span>
+                            <p id="facility-popup-description"></p>
+                        </div>
+
+                        <div class="map-key" aria-label="Map Symbols Legend">
+                            <div class="map-key-symbols">
+                                <span class="key-item"><span class="key-swatch key-entry">IN</span> Entry Gate</span>
+                                <span class="key-item"><span class="key-swatch key-exit">OUT</span> Exit Gate</span>
+                                <span class="key-item"><span class="key-swatch key-emergency">EM</span> Emergency
+                                    Exit</span>
+                                <span class="key-item"><span class="key-line"></span> Movement Path</span>
+                            </div>
+                            <div class="facility-legend" id="facility-legend" role="list"
+                                aria-label="Facility marker legend"></div>
+                        </div>
+                    </div>
+
+                    <aside class="zone-details-card" id="zone-details-panel" aria-live="polite">
+                        <div class="details-header">
+                            <span class="details-eyebrow" id="detail-zone-id">ZONE</span>
+                            <span class="pill pill-low" id="detail-density-badge">Low</span>
+                        </div>
+                        <h3 id="detail-zone-name">Select a Zone</h3>
+                        <p class="details-desc" id="detail-zone-desc">Click any zone on the venue map to inspect live
+                            occupancy and crowd movement.</p>
+
+                        <div class="details-metrics">
+                            <div class="metric-box">
+                                <span class="metric-label">Current Crowd</span>
+                                <strong id="detail-current-crowd">--</strong>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-label">Max Capacity</span>
+                                <strong id="detail-max-capacity">--</strong>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-label">Occupancy</span>
+                                <strong id="detail-occupancy">--</strong>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-label">Density Level</span>
+                                <strong id="detail-density-text">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="occupancy-bar-wrap">
+                            <div class="occupancy-bar-track">
+                                <div class="occupancy-bar-fill" id="detail-occupancy-bar"></div>
+                            </div>
+                        </div>
+
+                        <div class="details-flow">
+                            <span class="metric-label">Connected Zones &amp; Flow</span>
+                            <p id="detail-connections">--</p>
+                        </div>
+                    </aside>
+                </div>
+            </section>
+
+            <!-- Live Alerts Panel -->
+            <section class="panel panel-alerts" aria-labelledby="alerts-heading">
+                <div class="panel-header">
+                    <div>
+                        <h2 id="alerts-heading">Live Alerts</h2>
+                        <p class="panel-subtitle">Sample alerts (demonstration data)</p>
+                    </div>
+                    <span class="badge badge-danger" id="alert-count">03 Demo</span>
+                </div>
+
+                <div class="panel-list" id="alerts-list">
+                    <article class="alert-item alert-critical">
+                        <div class="item-top">
+                            <strong>Gate B Entrance</strong>
+                            <span class="pill pill-critical">Critical</span>
+                        </div>
+                        <p>Crowd density reached 92% capacity. Redirect incoming spectators to Gate D.</p>
+                        <span class="item-meta">Demo Alert • Just now</span>
+                    </article>
+
+                    <article class="alert-item alert-high">
+                        <div class="item-top">
+                            <strong>North Concourse</strong>
+                            <span class="pill pill-high">High</span>
+                        </div>
+                        <p>Heavy pedestrian buildup near concession stands (78% capacity).</p>
+                        <span class="item-meta">Demo Alert • 2 mins ago</span>
+                    </article>
+
+                    <article class="alert-item alert-medium">
+                        <div class="item-top">
+                            <strong>West Tunnel Exit</strong>
+                            <span class="pill pill-medium">Medium</span>
+                        </div>
+                        <p>Moderate slowdown observed; monitor flow over next 5 minutes.</p>
+                        <span class="item-meta">Demo Alert • 4 mins ago</span>
+                    </article>
+                </div>
+            </section>
+
+        </section>
+
+        <!-- Crowd Density Analytics Panel (Full Width) -->
+        <section class="panel panel-analytics" aria-labelledby="analytics-heading">
+            <div class="panel-header">
+                <div>
+                    <h2 id="analytics-heading">Crowd Density Analytics</h2>
+                    <p class="panel-subtitle" id="analytics-subtitle">Live charts powered by simulated venue zone data
+                    </p>
+                </div>
+                <span class="badge badge-info" id="analytics-status-badge">Synced • Paused</span>
+            </div>
+
+            <div class="analytics-fallback" id="analytics-fallback" hidden>
+                <strong>Charts Unavailable</strong>
+                <p>Chart.js could not be loaded (check internet connection or CDN access). The interactive venue
+                    simulator above continues to work normally.</p>
+            </div>
+
+            <div class="analytics-grid" id="crowd-analytics-container">
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <h3>Zone-Wise Occupancy (%)</h3>
+                        <span class="chart-caption">Current capacity usage per zone</span>
+                    </div>
+                    <div class="chart-canvas-wrap">
+                        <canvas id="occupancy-bar-chart" aria-label="Zone-wise occupancy bar chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <h3>Crowd Movement Over Time</h3>
+                        <span class="chart-caption">Total crowd &amp; inter-zone transfers</span>
+                    </div>
+                    <div class="chart-canvas-wrap">
+                        <canvas id="movement-line-chart" aria-label="Crowd movement over time line chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <h3>Density Distribution</h3>
+                        <span class="chart-caption">Zones by Low, Medium, High, Critical</span>
+                    </div>
+                    <div class="chart-canvas-wrap">
+                        <canvas id="density-dist-chart" aria-label="Crowd density distribution chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Secondary Predictions & Alternative Routes -->
+        <section class="secondary-grid">
+
+            <!-- Five-Minute Prediction Panel -->
+            <section class="panel panel-predictions" aria-labelledby="predictions-heading">
+                <div class="panel-header">
+                    <div>
+                        <h2 id="predictions-heading">5-Minute Congestion Prediction</h2>
+                        <p class="panel-subtitle">Short-term bottleneck forecast (placeholder)</p>
+                    </div>
+                    <span class="badge badge-warning">+5 Min Forecast</span>
+                </div>
+
+                <div class="panel-list" id="predictions-list">
+                    <div class="prediction-item">
+                        <div class="item-top">
+                            <strong>Gate B Concourse</strong>
+                            <span class="pill pill-critical">High Risk (89%)</span>
+                        </div>
+                        <p>Projected bottleneck in ~4 minutes due to halftime queue surge.</p>
+                    </div>
+
+                    <div class="prediction-item">
+                        <div class="item-top">
+                            <strong>East Corridor Junction</strong>
+                            <span class="pill pill-high">Elevated Risk (74%)</span>
+                        </div>
+                        <p>Density trending upward; monitor inflow from Lower Bowl East.</p>
+                    </div>
+
+                    <div class="prediction-item">
+                        <div class="item-top">
+                            <strong>South Fan Plaza</strong>
+                            <span class="pill pill-medium">Moderate Risk (58%)</span>
+                        </div>
+                        <p>Gradual crowd buildup expected within 5 minutes.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alternative Routes Panel -->
+            <section class="panel panel-routes" aria-labelledby="routes-heading">
+                <div class="panel-header">
+                    <div>
+                        <h2 id="routes-heading">Alternative Route Recommendations</h2>
+                        <p class="panel-subtitle">Suggested bypass paths (placeholder)</p>
+                    </div>
+                    <span class="badge badge-success">Flow Guidance</span>
+                </div>
+
+                <div class="panel-list" id="routes-list">
+                    <div class="route-item">
+                        <div class="item-top">
+                            <strong>Bypass Gate B Entrance</strong>
+                            <span class="pill pill-low">Recommended</span>
+                        </div>
+                        <p class="route-path">Gate B &rarr; East Perimeter Walkway &rarr; Gate D</p>
+                        <span class="item-meta">Estimated relief: -35% wait time</span>
+                    </div>
+
+                    <div class="route-item">
+                        <div class="item-top">
+                            <strong>Bypass North Concourse</strong>
+                            <span class="pill pill-low">Available</span>
+                        </div>
+                        <p class="route-path">Section 104 &rarr; Upper Ring Deck &rarr; West Exit</p>
+                        <span class="item-meta">Low density corridor (28% full)</span>
+                    </div>
+                </div>
+            </section>
+
+        </section>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="script.js"></script>
+
+</body>
+
+</html>
