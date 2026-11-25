@@ -2,7 +2,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -12,7 +12,9 @@ from backend.api.connection_manager import ConnectionManager
 from backend.intelligence.congestion import CongestionDetector
 from backend.intelligence.forecast import CrowdForecaster
 from backend.intelligence.alerts import AlertGenerator
+from backend.intelligence.routing import find_dynamic_route
 from backend.api.friends import router as friends_router
+from backend.friends.database import initialize_database
 
 
 # Shared application objects
@@ -31,7 +33,12 @@ latest_update = {
     "data": simulator.get_snapshot(),
     "congestion": {},
     "forecasts": {},
-    "alerts": []
+    "alerts": [],
+    "blocked_connections": [],
+    "evacuation": {
+        "active": False,
+        "destination": None
+    }
 }
 
 
@@ -62,7 +69,15 @@ async def simulation_loop():
             "data": snapshot,
             "congestion": congestion,
             "forecasts": forecasts,
-            "alerts": alerts
+            "alerts": alerts,
+            "blocked_connections": [
+                {"source": u, "destination": v}
+                for u, v in sorted(blocked_connections)
+            ],
+            "evacuation": {
+                "active": getattr(simulator, "evacuation_mode", False),
+                "destination": getattr(simulator, "evacuation_destination", None)
+            }
         }
 
         # 6. Broadcast to connected clients
@@ -74,6 +89,8 @@ async def simulation_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global simulation_task
+
+    initialize_database()
 
     simulation_task = asyncio.create_task(simulation_loop())
 
@@ -108,6 +125,24 @@ app.add_middleware(
 class SurgeRequest(BaseModel):
     zone_id: str
     people_per_tick: int = 30
+
+
+class RouteRequest(BaseModel):
+    start_zone: str
+    destination_zone: str
+
+
+class BlockConnectionRequest(BaseModel):
+    source: str
+    destination: str
+
+
+class EvacuationRequest(BaseModel):
+    destination: str = "CENTRAL_EXIT"
+
+
+# Set of currently blocked connection tuples: (u, v)
+blocked_connections = set()
 
 
 @app.get("/")
@@ -151,6 +186,95 @@ def stop_surge():
 
     return {
         "message": "Crowd surge stopped"
+    }
+
+
+@app.post("/simulate/evacuate/start")
+def start_evacuation(request: EvacuationRequest):
+    try:
+        simulator.start_evacuation(request.destination)
+        return {
+            "message": "Emergency Evacuation Simulation activated",
+            "destination": request.destination,
+            "evacuation_mode": True
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/simulate/evacuate/stop")
+def stop_evacuation():
+    simulator.stop_evacuation()
+    return {
+        "message": "Emergency Evacuation Simulation deactivated",
+        "evacuation_mode": False
+    }
+
+
+@app.post("/route")
+def get_route(request: RouteRequest):
+    try:
+        current_snapshot = simulator.get_snapshot()
+        result = find_dynamic_route(
+            start_zone=request.start_zone,
+            destination_zone=request.destination_zone,
+            snapshot_data=current_snapshot,
+            closed_connections=list(blocked_connections)
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/route")
+def get_route_query(start_zone: str, destination_zone: str):
+    try:
+        current_snapshot = simulator.get_snapshot()
+        result = find_dynamic_route(
+            start_zone=start_zone,
+            destination_zone=destination_zone,
+            snapshot_data=current_snapshot,
+            closed_connections=list(blocked_connections)
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/connections/blocked")
+def get_blocked_connections():
+    return {
+        "blocked_connections": [
+            {"source": u, "destination": v}
+            for u, v in sorted(blocked_connections)
+        ]
+    }
+
+
+@app.post("/connections/block")
+def block_connection(request: BlockConnectionRequest):
+    pair = tuple(sorted([request.source, request.destination]))
+    blocked_connections.add(pair)
+    return {
+        "message": f"Connection {pair[0]} <-> {pair[1]} is now BLOCKED.",
+        "blocked_connection": {"source": pair[0], "destination": pair[1]},
+        "total_blocked": len(blocked_connections)
+    }
+
+
+@app.post("/connections/reopen")
+def reopen_connection(request: BlockConnectionRequest):
+    pair = tuple(sorted([request.source, request.destination]))
+    if pair in blocked_connections:
+        blocked_connections.remove(pair)
+        return {
+            "message": f"Connection {pair[0]} <-> {pair[1]} has been REOPENED.",
+            "reopened_connection": {"source": pair[0], "destination": pair[1]},
+            "total_blocked": len(blocked_connections)
+        }
+    return {
+        "message": f"Connection {pair[0]} <-> {pair[1]} was not blocked.",
+        "total_blocked": len(blocked_connections)
     }
 
 

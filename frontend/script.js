@@ -483,6 +483,9 @@ const dom = {
     safeZones: document.getElementById("safe-zones"),
     predictedBottlenecks: document.getElementById("predicted-bottlenecks"),
 
+    alertsList: document.getElementById("alerts-list"),
+    alertCount: document.getElementById("alert-count"),
+
     venueSelect: document.getElementById("venue-select"),
     venueSubtitle: document.getElementById("venue-subtitle"),
     startBtn: document.getElementById("sim-start-btn"),
@@ -493,6 +496,7 @@ const dom = {
     mapStage: document.getElementById("stadium-map-container"),
     svg: document.getElementById("venue-svg"),
     facilityMarkerLayer: document.getElementById("facility-marker-layer"),
+    friendsMarkerLayer: document.getElementById("friends-marker-layer"),
     facilityLegend: document.getElementById("facility-legend"),
     tooltip: document.getElementById("map-tooltip"),
     facilityPopup: document.getElementById("map-facility-popup"),
@@ -512,13 +516,30 @@ const dom = {
     detailOccupancyBar: document.getElementById("detail-occupancy-bar"),
     detailConnections: document.getElementById("detail-connections"),
 
+    detailForecastCard: document.getElementById("detail-forecast-card"),
+    detailForecastSeverity: document.getElementById("detail-forecast-severity"),
+    detailForecastOcc: document.getElementById("detail-forecast-occ"),
+    detailForecastTrend: document.getElementById("detail-forecast-trend"),
+    detailForecastBar: document.getElementById("detail-forecast-bar"),
+
     analyticsContainer: document.getElementById("crowd-analytics-container"),
     analyticsFallback: document.getElementById("analytics-fallback"),
     analyticsSubtitle: document.getElementById("analytics-subtitle"),
     analyticsStatusBadge: document.getElementById("analytics-status-badge"),
     occupancyCanvas: document.getElementById("occupancy-bar-chart"),
     movementCanvas: document.getElementById("movement-line-chart"),
-    distributionCanvas: document.getElementById("density-dist-chart")
+    distributionCanvas: document.getElementById("density-dist-chart"),
+
+    // Incident Controls & Routing DOM
+    incidentConnectionSelect: document.getElementById("incident-connection-select"),
+    blockConnectionBtn: document.getElementById("block-connection-btn"),
+    reopenConnectionBtn: document.getElementById("reopen-connection-btn"),
+    blockedConnectionsList: document.getElementById("blocked-connections-list"),
+    blockedCountBadge: document.getElementById("blocked-count-badge"),
+    routeStartSelect: document.getElementById("route-start-select"),
+    routeDestSelect: document.getElementById("route-dest-select"),
+    calculateRouteBtn: document.getElementById("calculate-route-btn"),
+    routeResultBox: document.getElementById("route-result-box")
 };
 
 // ==========================================================================
@@ -679,6 +700,12 @@ function renderSvgVenue(preset) {
             y: zone.labelPos.y + 26,
             class: "zone-label-pct"
         }, "0%"));
+
+        g.appendChild(createSvgElement("text", {
+            x: zone.labelPos.x,
+            y: zone.labelPos.y + 39,
+            class: "zone-label-forecast"
+        }, ""));
 
         // Click + Keyboard + Hover interactions
         g.addEventListener("click", () => selectZone(zone.id));
@@ -952,10 +979,30 @@ function showTooltip(event, zoneId) {
     if (!zone) return;
 
     const density = getDensityInfo(zone.currentCrowd, zone.maxCapacity);
+
+    // Backend 5-minute forecast check
+    const backendKey = Object.keys(BACKEND_ZONE_TO_FRONTEND).find(
+        (bKey) => BACKEND_ZONE_TO_FRONTEND[bKey] === zone.id
+    );
+    const fData = backendKey ? backendForecasts[backendKey] : null;
+
+    let forecastHtml = "";
+    if (fData && typeof fData.predicted_occupancy === "number") {
+        const severity = getForecastSeverity(fData.predicted_occupancy);
+        const changeSign = fData.predicted_change > 0 ? "+" : "";
+        forecastHtml = `
+            <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(56, 189, 248, 0.3); color: #38bdf8;">
+                <strong>5-Min Forecast:</strong> ${fData.predicted_occupancy}% (${severity.label})
+                <div style="font-size: 11px; color: #cbd5e1;">Trend: ${fData.trend} (${changeSign}${fData.predicted_change}%)</div>
+            </div>
+        `;
+    }
+
     dom.tooltip.innerHTML = `
         <strong>${zone.id}: ${zone.name}</strong>
         <div>Crowd: ${zone.currentCrowd.toLocaleString()} / ${zone.maxCapacity.toLocaleString()}</div>
         <div>Occupancy: ${density.occupancy.toFixed(1)}% (${density.label})</div>
+        ${forecastHtml}
     `;
     dom.tooltip.hidden = false;
     moveTooltip(event);
@@ -994,12 +1041,49 @@ function updateZoneVisuals() {
         const density = getDensityInfo(zone.currentCrowd, zone.maxCapacity);
         const shape = zoneGroup.querySelector(".zone-shape");
         const pctLabel = zoneGroup.querySelector(".zone-label-pct");
+        const forecastLabel = zoneGroup.querySelector(".zone-label-forecast");
 
         shape.setAttribute("fill", density.fillColor);
         shape.setAttribute("stroke", density.strokeColor);
         pctLabel.textContent = `${Math.round(density.occupancy)}%`;
 
+        // Check for 5-minute backend forecast for this zone
+        const backendKey = Object.keys(BACKEND_ZONE_TO_FRONTEND).find(
+            (bKey) => BACKEND_ZONE_TO_FRONTEND[bKey] === zone.id
+        );
+        const fData = backendKey ? backendForecasts[backendKey] : null;
+
+        if (fData && typeof fData.predicted_occupancy === "number") {
+            const predOcc = Math.round(fData.predicted_occupancy);
+            if (forecastLabel) {
+                forecastLabel.textContent = `🔮 ${predOcc}% in 5m`;
+            }
+
+            // Highlight zones expected to become congested (predicted occupancy >= 70%)
+            const isExpectedCongested = predOcc >= 70;
+            zoneGroup.classList.toggle("forecast-congested", isExpectedCongested);
+        } else {
+            if (forecastLabel) {
+                forecastLabel.textContent = "";
+            }
+            zoneGroup.classList.remove("forecast-congested");
+        }
+
         zoneGroup.classList.toggle("is-selected", zone.id === state.selectedZoneId);
+    });
+}
+
+function isConnectionBlocked(fromId, toId) {
+    if (!Array.isArray(activeBlockedConnections)) return false;
+    // Map frontend IDs (Z1..Z8) to backend IDs or compare backend pairs
+    const bFrom = Object.keys(BACKEND_ZONE_TO_FRONTEND).find((k) => BACKEND_ZONE_TO_FRONTEND[k] === fromId) || fromId;
+    const bTo = Object.keys(BACKEND_ZONE_TO_FRONTEND).find((k) => BACKEND_ZONE_TO_FRONTEND[k] === toId) || toId;
+
+    return activeBlockedConnections.some((c) => {
+        return (c.source === bFrom && c.destination === bTo) ||
+               (c.source === bTo && c.destination === bFrom) ||
+               (c.source === fromId && c.destination === toId) ||
+               (c.source === toId && c.destination === fromId);
     });
 }
 
@@ -1007,22 +1091,39 @@ function updateFlowVisuals() {
     const flowElements = dom.svg.querySelectorAll("[data-flow-key]");
     flowElements.forEach((flowG) => {
         const key = flowG.getAttribute("data-flow-key");
+        const parts = key ? key.split("-") : [];
+        const isBlocked = parts.length === 2 && isConnectionBlocked(parts[0], parts[1]);
+
         const active = state.activeFlows.find((f) => f.key === key);
         const line = flowG.querySelector(".flow-path");
         const badgeBg = flowG.querySelector(".flow-badge-bg");
         const badgeText = flowG.querySelector(".flow-badge-text");
 
-        if (active && state.isRunning) {
-            line.classList.add("flow-active");
-            line.setAttribute("marker-end", "url(#flow-arrow-active)");
-            badgeBg.setAttribute("visibility", "visible");
-            badgeText.setAttribute("visibility", "visible");
-            badgeText.textContent = `+${active.count}`;
-        } else {
+        if (isBlocked) {
             line.classList.remove("flow-active");
-            line.setAttribute("marker-end", "url(#flow-arrow)");
-            badgeBg.setAttribute("visibility", "hidden");
-            badgeText.setAttribute("visibility", "hidden");
+            line.classList.add("flow-blocked");
+            badgeBg.setAttribute("visibility", "visible");
+            badgeBg.classList.add("flow-blocked-badge");
+            badgeText.setAttribute("visibility", "visible");
+            badgeText.classList.add("flow-blocked-text");
+            badgeText.textContent = "BLOCKED";
+        } else {
+            line.classList.remove("flow-blocked");
+            badgeBg.classList.remove("flow-blocked-badge");
+            badgeText.classList.remove("flow-blocked-text");
+
+            if (active && state.isRunning) {
+                line.classList.add("flow-active");
+                line.setAttribute("marker-end", "url(#flow-arrow-active)");
+                badgeBg.setAttribute("visibility", "visible");
+                badgeText.setAttribute("visibility", "visible");
+                badgeText.textContent = `+${active.count}`;
+            } else {
+                line.classList.remove("flow-active");
+                line.setAttribute("marker-end", "url(#flow-arrow)");
+                badgeBg.setAttribute("visibility", "hidden");
+                badgeText.setAttribute("visibility", "hidden");
+            }
         }
     });
 }
@@ -1067,6 +1168,35 @@ function updateDetailsPanel() {
     dom.detailConnections.textContent = connectedNames
         ? `${connectedNames} • Trend: ${trendText}`
         : `Trend: ${trendText}`;
+
+    // Update 5-minute forecast details in sidebar
+    if (dom.detailForecastCard) {
+        const backendKey = Object.keys(BACKEND_ZONE_TO_FRONTEND).find(
+            (bKey) => BACKEND_ZONE_TO_FRONTEND[bKey] === zone.id
+        );
+        const fData = backendKey ? backendForecasts[backendKey] : null;
+
+        if (fData && typeof fData.predicted_occupancy === "number") {
+            const severity = getForecastSeverity(fData.predicted_occupancy);
+            const changeSign = fData.predicted_change > 0 ? "+" : "";
+
+            dom.detailForecastSeverity.textContent = severity.label;
+            dom.detailForecastSeverity.className = severity.pillClass;
+            dom.detailForecastOcc.textContent = `${fData.predicted_occupancy.toFixed(1)}%`;
+            dom.detailForecastTrend.textContent = `${fData.trend} (${changeSign}${fData.predicted_change.toFixed(1)}%)`;
+
+            const forecastBarWidth = Math.min(100, Math.max(0, fData.predicted_occupancy));
+            dom.detailForecastBar.style.width = `${forecastBarWidth}%`;
+            dom.detailForecastBar.style.backgroundColor = severity.color;
+        } else {
+            dom.detailForecastSeverity.textContent = "Normal";
+            dom.detailForecastSeverity.className = "pill pill-low";
+            dom.detailForecastOcc.textContent = `${density.occupancy.toFixed(1)}%`;
+            dom.detailForecastTrend.textContent = "Insufficient Data";
+            dom.detailForecastBar.style.width = `${Math.min(100, density.occupancy)}%`;
+            dom.detailForecastBar.style.backgroundColor = "#22c55e";
+        }
+    }
 }
 
 function updateOverviewCards() {
@@ -1507,6 +1637,548 @@ function initSimulator() {
 
     renderFacilityLegend();
     loadVenue(state.currentVenueKey);
+    initFriendFinderLive();
+    initStadiumLive();
+    initIncidentControls();
+}
+
+// ==========================================================================
+// 9. STADIUM LIVE BACKEND WEBSOCKET INTEGRATION
+// ==========================================================================
+
+const BACKEND_ZONE_TO_FRONTEND = {
+    "NORTH_STAND": "Z1",
+    "SOUTH_STAND": "Z2",
+    "GATE_A": "Z5",
+    "GATE_B": "Z6",
+    "CENTRAL_EXIT": "Z7"
+};
+
+let stadiumSocket = null;
+let stadiumReconnectTimer = null;
+let liveAlertsHistory = [];
+
+// Store backend forecast data
+const backendForecasts = {};
+
+// Store blocked connections from backend
+let activeBlockedConnections = [];
+let activeHighlightedRoute = [];
+
+function getForecastSeverity(predictedOccupancy) {
+    if (predictedOccupancy >= 85) {
+        return { label: "Critical", pillClass: "pill pill-critical", color: "#ef4444" };
+    }
+    if (predictedOccupancy >= 70) {
+        return { label: "High", pillClass: "pill pill-high", color: "#f97316" };
+    }
+    if (predictedOccupancy >= 50) {
+        return { label: "Moderate", pillClass: "pill pill-medium", color: "#eab308" };
+    }
+    return { label: "Normal", pillClass: "pill pill-low", color: "#22c55e" };
+}
+
+function handleStadiumUpdate(payload) {
+    if (!payload || payload.event !== "stadium_update") return;
+
+    const snapshot = payload.data || {};
+    const congestion = payload.congestion || {};
+    const forecasts = payload.forecasts || {};
+    const alerts = payload.alerts || [];
+
+    // 1. Update matched zones with real backend crowd data
+    Object.entries(snapshot).forEach(([backendZoneId, zoneData]) => {
+        const frontendZoneId = BACKEND_ZONE_TO_FRONTEND[backendZoneId];
+        if (!frontendZoneId) return;
+
+        const zone = state.zones.find((z) => z.id === frontendZoneId);
+        if (!zone) return;
+
+        zone.previousCrowd = zone.currentCrowd;
+        zone.currentCrowd = zoneData.current_count ?? zone.currentCrowd;
+        if (zoneData.capacity) {
+            zone.maxCapacity = zoneData.capacity;
+        }
+    });
+
+    // Save latest backend forecasts
+    Object.entries(forecasts).forEach(([backendZoneId, fData]) => {
+        backendForecasts[backendZoneId] = fData;
+    });
+
+    // Update blocked connections from backend if present
+    if (Array.isArray(payload.blocked_connections)) {
+        activeBlockedConnections = payload.blocked_connections;
+        renderBlockedConnectionsList();
+    }
+
+    state.tickCount += 1;
+
+    // 2. Accumulate incoming operator alerts without duplicates
+    if (Array.isArray(alerts) && alerts.length > 0) {
+        alerts.forEach((alert) => {
+            const alertKey = `${alert.zone_id}-${alert.condition}`;
+            const existing = liveAlertsHistory.find((a) => a.key === alertKey);
+
+            if (!existing) {
+                liveAlertsHistory.unshift({
+                    ...alert,
+                    key: alertKey,
+                    id: "alert-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5),
+                    receivedAt: new Date(),
+                    acknowledged: false
+                });
+            } else if (existing.acknowledged && (existing.severity !== alert.severity || existing.reason !== alert.reason)) {
+                // If the alert escalates, reopen acknowledgement
+                existing.severity = alert.severity;
+                existing.condition = alert.condition;
+                existing.reason = alert.reason;
+                existing.recommended_action = alert.recommended_action;
+                existing.acknowledged = false;
+                existing.receivedAt = new Date();
+            }
+        });
+
+        if (liveAlertsHistory.length > 30) {
+            liveAlertsHistory.length = 30;
+        }
+    }
+
+    renderLiveAlerts();
+    recordHistoryPoint();
+    updateAllViews();
+
+    // Update status badge to show live sync
+    if (dom.simStatusBadge) {
+        dom.simStatusBadge.textContent = `Live Connected (Tick ${state.tickCount})`;
+        dom.simStatusBadge.className = "badge badge-success";
+    }
+}
+
+function renderLiveAlerts() {
+    if (!dom.alertsList) return;
+
+    if (liveAlertsHistory.length === 0) {
+        dom.alertsList.innerHTML = `
+            <div style="padding: 16px; color: var(--text-muted); font-size: 13px; text-align: center;">
+                No active critical alerts. Stadium conditions normal.
+            </div>
+        `;
+        if (dom.alertCount) {
+            dom.alertCount.textContent = "0 Unhandled";
+            dom.alertCount.className = "badge badge-neutral";
+        }
+        return;
+    }
+
+    const unhandledCount = liveAlertsHistory.filter((a) => !a.acknowledged).length;
+    if (dom.alertCount) {
+        dom.alertCount.textContent = `${unhandledCount} Unhandled`;
+        dom.alertCount.className = unhandledCount > 0 ? "badge badge-danger" : "badge badge-success";
+    }
+
+    dom.alertsList.replaceChildren();
+
+    liveAlertsHistory.forEach((item) => {
+        const article = document.createElement("article");
+        const isCritical = (item.severity === "CRITICAL" || item.condition?.includes("CRITICAL"));
+        const severityClass = isCritical ? "alert-critical" : "alert-high";
+        const displaySeverity = isCritical ? "CRITICAL" : "HIGH";
+        const pillClass = isCritical ? "pill pill-critical" : "pill pill-high";
+
+        article.className = `alert-item ${severityClass}${item.acknowledged ? " alert-acknowledged" : ""}`;
+
+        // Top Header Row: Zone Title, Severity Badge, and Action Button
+        const top = document.createElement("div");
+        top.className = "item-top";
+
+        const titleWrap = document.createElement("div");
+        titleWrap.style.display = "flex";
+        titleWrap.style.alignItems = "center";
+        titleWrap.style.gap = "8px";
+
+        const strong = document.createElement("strong");
+        strong.textContent = item.zone_name || item.zone_id;
+
+        const pill = document.createElement("span");
+        pill.className = pillClass;
+        pill.textContent = displaySeverity;
+
+        titleWrap.append(strong, pill);
+
+        const actionsWrap = document.createElement("div");
+        if (item.acknowledged) {
+            const ackBadge = document.createElement("span");
+            ackBadge.className = "alert-ack-badge";
+            ackBadge.textContent = "✓ Acknowledged";
+            actionsWrap.appendChild(ackBadge);
+        } else {
+            const ackBtn = document.createElement("button");
+            ackBtn.type = "button";
+            ackBtn.className = "alert-ack-btn";
+            ackBtn.textContent = "Acknowledge";
+            ackBtn.title = "Mark this incident alert as handled";
+            ackBtn.addEventListener("click", () => {
+                item.acknowledged = true;
+                renderLiveAlerts();
+            });
+            actionsWrap.appendChild(ackBtn);
+        }
+
+        top.append(titleWrap, actionsWrap);
+
+        // Reason Statement
+        const pReason = document.createElement("p");
+        pReason.innerHTML = `<strong>Reason:</strong> ${item.reason || "High crowd concentration detected."}`;
+
+        // Operator Recommended Action Box
+        const actionBox = document.createElement("div");
+        actionBox.className = "alert-action-box";
+        actionBox.innerHTML = `<strong>Action Required:</strong> ${item.recommended_action || "Deploy perimeter marshals to guide crowd flow."}`;
+
+        // Context: Check for nearby blocked connections or current congestion
+        let contextNotice = "";
+        const zoneBlockedConns = activeBlockedConnections.filter((c) => c.source === item.zone_id || c.destination === item.zone_id);
+        if (zoneBlockedConns.length > 0) {
+            const blockedNames = zoneBlockedConns.map((c) => `${c.source}↔${c.destination}`).join(", ");
+            contextNotice = `⚠ Adjacent corridor blocked: ${blockedNames}.`;
+        }
+
+        const meta = document.createElement("div");
+        meta.className = "item-meta";
+        const timeStr = item.receivedAt ? item.receivedAt.toLocaleTimeString() : "Just now";
+        meta.textContent = `${item.condition || "Incident Condition"} • ${timeStr}`;
+
+        if (contextNotice) {
+            const ctxTag = document.createElement("span");
+            ctxTag.className = "alert-context-tag";
+            ctxTag.textContent = contextNotice;
+            meta.appendChild(document.createElement("br"));
+            meta.appendChild(ctxTag);
+        }
+
+        article.append(top, pReason, actionBox, meta);
+        dom.alertsList.appendChild(article);
+    });
+}
+
+function initStadiumLive() {
+    if (stadiumSocket && (stadiumSocket.readyState === WebSocket.OPEN || stadiumSocket.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+
+    if (stadiumReconnectTimer) {
+        clearTimeout(stadiumReconnectTimer);
+        stadiumReconnectTimer = null;
+    }
+
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = window.location.hostname || "127.0.0.1";
+    const port = "8000";
+    const wsUrl = `${protocol}//${host}:${port}/ws/stadium`;
+
+    try {
+        stadiumSocket = new WebSocket(wsUrl);
+
+        stadiumSocket.onopen = () => {
+            console.log("[SmartStadium WS] Connected to backend simulation feed.");
+            // Disable manual frontend simulation step loop to prevent duplicate simulations
+            pauseSimulation();
+            if (dom.startBtn) dom.startBtn.disabled = true;
+            if (dom.pauseBtn) dom.pauseBtn.disabled = true;
+            if (dom.simStatusBadge) {
+                dom.simStatusBadge.textContent = "Live Connected";
+                dom.simStatusBadge.className = "badge badge-success";
+            }
+        };
+
+        stadiumSocket.onmessage = (event) => {
+            try {
+                const message = JSON.parse(event.data);
+                handleStadiumUpdate(message);
+            } catch (err) {
+                console.warn("[SmartStadium WS] Error parsing message:", err);
+            }
+        };
+
+        stadiumSocket.onerror = (err) => {
+            console.warn("[SmartStadium WS] Connection error:", err);
+        };
+
+        stadiumSocket.onclose = () => {
+            console.log("[SmartStadium WS] Disconnected. Reconnecting in 3 seconds...");
+            if (dom.simStatusBadge) {
+                dom.simStatusBadge.textContent = "Reconnecting...";
+                dom.simStatusBadge.className = "badge badge-warning";
+            }
+            if (stadiumReconnectTimer) clearTimeout(stadiumReconnectTimer);
+            stadiumReconnectTimer = setTimeout(initStadiumLive, 3000);
+        };
+    } catch (err) {
+        console.warn("[SmartStadium WS] Failed to initialize WebSocket:", err);
+        stadiumReconnectTimer = setTimeout(initStadiumLive, 3000);
+    }
+}
+
+// ==========================================================================
+// 9. FRIEND FINDER LIVE LOCATION INTEGRATION
+// ==========================================================================
+
+const BACKEND_ZONE_COORDINATES = {
+    "NORTH_STAND": { x: 400, y: 84 },
+    "SOUTH_STAND": { x: 400, y: 394 },
+    "GATE_A": { x: 145, y: 78 },
+    "GATE_B": { x: 655, y: 78 },
+    "CENTRAL_EXIT": { x: 400, y: 402 },
+    "MAIN_CONCOURSE": { x: 400, y: 238 },
+    "FOOD_COURT": { x: 195, y: 42 },
+    "RESTROOM_CORRIDOR": { x: 605, y: 320 }
+};
+
+// Store current friend locations keyed by user_id
+const friendLocations = {};
+let friendFinderSocket = null;
+
+function getInitials(name) {
+    if (!name) return "?";
+    const parts = name.trim().split(/[\s_-]+/);
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+}
+
+function getFriendSvgCoordinates(location) {
+    if (location.zone_id && BACKEND_ZONE_COORDINATES[location.zone_id]) {
+        return BACKEND_ZONE_COORDINATES[location.zone_id];
+    }
+    // Fallback if raw coordinates 0-1000 are supplied
+    if (typeof location.x === "number" && typeof location.y === "number") {
+        return {
+            x: (location.x / 1000) * 800,
+            y: (location.y / 1000) * 500
+        };
+    }
+    return { x: 400, y: 250 };
+}
+
+function renderFriendMarkers() {
+    if (!dom.friendsMarkerLayer) return;
+    dom.friendsMarkerLayer.replaceChildren();
+
+    Object.values(friendLocations).forEach((friend) => {
+        const coords = getFriendSvgCoordinates(friend);
+        const marker = document.createElement("div");
+        marker.className = "friend-marker";
+        marker.dataset.userId = friend.user_id;
+
+        // Position in percentage relative to SVG coordinate space (800 x 500)
+        marker.style.left = `${(coords.x / 800) * 100}%`;
+        marker.style.top = `${(coords.y / 500) * 100}%`;
+
+        const pulse = document.createElement("span");
+        pulse.className = "friend-marker-pulse";
+
+        const avatar = document.createElement("span");
+        avatar.className = "friend-marker-avatar";
+        avatar.textContent = getInitials(friend.user_id);
+
+        const name = document.createElement("span");
+        name.className = "friend-marker-name";
+        name.textContent = friend.user_id;
+
+        marker.append(pulse, avatar, name);
+
+        marker.title = `${friend.user_id} (${friend.zone_id || "In Transit"})`;
+
+        dom.friendsMarkerLayer.appendChild(marker);
+    });
+}
+
+function handleFriendMessage(data) {
+    if (!data) return;
+
+    if (data.type === "initial_locations" && Array.isArray(data.locations)) {
+        data.locations.forEach((loc) => {
+            if (loc.user_id) {
+                friendLocations[loc.user_id] = loc;
+            }
+        });
+        renderFriendMarkers();
+    } else if (data.type === "location_update" && data.location) {
+        const loc = data.location;
+        if (loc.user_id) {
+            friendLocations[loc.user_id] = loc;
+            renderFriendMarkers();
+        }
+    }
+}
+
+function initFriendFinderLive() {
+    // Read optional group_id and user_id from URL query params (e.g. ?group_id=1&user_id=Alex)
+    const params = new URLSearchParams(window.location.search);
+    const groupId = params.get("group_id") || "1";
+    const userId = params.get("user_id") || "DemoUser";
+
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = window.location.hostname || "127.0.0.1";
+    const port = "8000";
+    const wsUrl = `${protocol}//${host}:${port}/groups/${groupId}/live?user_id=${encodeURIComponent(userId)}`;
+
+    try {
+        friendFinderSocket = new WebSocket(wsUrl);
+
+        friendFinderSocket.onopen = () => {
+            console.log(`[FriendFinder] Connected to group ${groupId} as ${userId}`);
+        };
+
+        friendFinderSocket.onmessage = (event) => {
+            try {
+                const message = JSON.parse(event.data);
+                handleFriendMessage(message);
+            } catch (err) {
+                console.warn("[FriendFinder] Error parsing message:", err);
+            }
+        };
+
+        friendFinderSocket.onerror = (err) => {
+            console.warn("[FriendFinder] WebSocket connection error:", err);
+        };
+
+        friendFinderSocket.onclose = () => {
+            console.log("[FriendFinder] Disconnected. Will retry in 5s...");
+            setTimeout(initFriendFinderLive, 5000);
+        };
+    } catch (e) {
+        console.warn("[FriendFinder] WebSocket init error:", e);
+    }
+}
+
+// ==========================================================================
+// 10. OPERATOR INCIDENT CONTROLS & DYNAMIC ROUTING
+// ==========================================================================
+
+function renderBlockedConnectionsList() {
+    if (!dom.blockedConnectionsList) return;
+
+    if (activeBlockedConnections.length === 0) {
+        dom.blockedConnectionsList.innerHTML = `<span style="font-size: 12px; color: var(--text-muted);">All corridors open</span>`;
+        if (dom.blockedCountBadge) {
+            dom.blockedCountBadge.textContent = "0 Blocked";
+            dom.blockedCountBadge.className = "badge badge-neutral";
+        }
+    } else {
+        dom.blockedConnectionsList.replaceChildren();
+        activeBlockedConnections.forEach((conn) => {
+            const pill = document.createElement("span");
+            pill.className = "blocked-pill";
+            pill.textContent = `⛔ ${conn.source} ↔ ${conn.destination}`;
+            dom.blockedConnectionsList.appendChild(pill);
+        });
+
+        if (dom.blockedCountBadge) {
+            dom.blockedCountBadge.textContent = `${activeBlockedConnections.length} Blocked`;
+            dom.blockedCountBadge.className = "badge badge-danger";
+        }
+    }
+
+    updateFlowVisuals();
+}
+
+async function fetchBlockedConnections() {
+    try {
+        const res = await fetch("http://127.0.0.1:8000/connections/blocked");
+        if (res.ok) {
+            const data = await res.json();
+            activeBlockedConnections = data.blocked_connections || [];
+            renderBlockedConnectionsList();
+        }
+    } catch (err) {
+        console.warn("[IncidentControls] Fetch error:", err);
+    }
+}
+
+async function blockSelectedConnection() {
+    if (!dom.incidentConnectionSelect) return;
+    const [source, destination] = dom.incidentConnectionSelect.value.split("|");
+    try {
+        const res = await fetch("http://127.0.0.1:8000/connections/block", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ source, destination })
+        });
+        if (res.ok) {
+            await fetchBlockedConnections();
+        }
+    } catch (err) {
+        console.warn("[IncidentControls] Block error:", err);
+    }
+}
+
+async function reopenSelectedConnection() {
+    if (!dom.incidentConnectionSelect) return;
+    const [source, destination] = dom.incidentConnectionSelect.value.split("|");
+    try {
+        const res = await fetch("http://127.0.0.1:8000/connections/reopen", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ source, destination })
+        });
+        if (res.ok) {
+            await fetchBlockedConnections();
+        }
+    } catch (err) {
+        console.warn("[IncidentControls] Reopen error:", err);
+    }
+}
+
+async function requestDynamicRoute() {
+    if (!dom.routeStartSelect || !dom.routeDestSelect || !dom.routeResultBox) return;
+
+    const startZone = dom.routeStartSelect.value;
+    const destZone = dom.routeDestSelect.value;
+
+    dom.routeResultBox.innerHTML = `<span style="color: var(--accent-cyan);">Calculating optimal route avoiding congestion and blocked corridors...</span>`;
+
+    try {
+        const res = await fetch("http://127.0.0.1:8000/route", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ start_zone: startZone, destination_zone: destZone })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            const routeStr = data.route.join(" ➔ ");
+            dom.routeResultBox.innerHTML = `
+                <div style="color: #22c55e; font-weight: 700; margin-bottom: 4px;">✔ Optimal Route Found</div>
+                <div style="font-size: 13px; font-weight: 600; color: #f8fafc; margin-bottom: 4px;">${routeStr}</div>
+                <div style="color: var(--text-muted);">${data.explanation} (Cost index: ${data.total_cost})</div>
+            `;
+        } else {
+            const errData = await res.json().catch(() => ({}));
+            dom.routeResultBox.innerHTML = `
+                <div style="color: #ef4444; font-weight: 700;">⚠ Route Blocked / Unavailable</div>
+                <div style="color: #fca5a5; margin-top: 2px;">${errData.detail || "No route available due to corridor closures."}</div>
+            `;
+        }
+    } catch (err) {
+        dom.routeResultBox.innerHTML = `<div style="color: #ef4444;">Error contacting routing service.</div>`;
+    }
+}
+
+function initIncidentControls() {
+    if (dom.blockConnectionBtn) {
+        dom.blockConnectionBtn.addEventListener("click", blockSelectedConnection);
+    }
+    if (dom.reopenConnectionBtn) {
+        dom.reopenConnectionBtn.addEventListener("click", reopenSelectedConnection);
+    }
+    if (dom.calculateRouteBtn) {
+        dom.calculateRouteBtn.addEventListener("click", requestDynamicRoute);
+    }
+
+    fetchBlockedConnections();
 }
 
 initSimulator();

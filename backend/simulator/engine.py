@@ -20,6 +20,9 @@ class CrowdSimulator:
         self.surge_zone = None
         self.surge_rate = 0
 
+        self.evacuation_mode = False
+        self.evacuation_destination = None
+
         self.last_inflow = {
             zone_id: 0 for zone_id in self.zones
         }
@@ -42,6 +45,18 @@ class CrowdSimulator:
         self.surge_zone = None
         self.surge_rate = 0
 
+    def start_evacuation(self, destination="CENTRAL_EXIT"):
+        if destination not in self.zones:
+            raise ValueError(f"Invalid evacuation destination: {destination}")
+        self.evacuation_mode = True
+        self.evacuation_destination = destination
+        self.surge_zone = None
+        self.surge_rate = 0
+
+    def stop_evacuation(self):
+        self.evacuation_mode = False
+        self.evacuation_destination = None
+
     def step(self):
         """
         Advance simulation by one tick.
@@ -60,7 +75,12 @@ class CrowdSimulator:
             zone: 0 for zone in self.zones
         }
 
-        departures["CENTRAL_EXIT"] = random.randint(0, 4)
+        if self.evacuation_mode:
+            # During evacuation, designated exit(s) process heavy outbound flow
+            exit_target = self.evacuation_destination or "CENTRAL_EXIT"
+            departures[exit_target] = random.randint(40, 75)
+        else:
+            departures["CENTRAL_EXIT"] = random.randint(0, 4)
 
         # 2. Generate proposed movement in both directions.
         proposals = []
@@ -167,8 +187,9 @@ class CrowdSimulator:
             zone: 0 for zone in self.zones
         }
 
-        arrivals["GATE_A"] = random.randint(0, 5)
-        arrivals["GATE_B"] = random.randint(0, 5)
+        if not self.evacuation_mode:
+            arrivals["GATE_A"] = random.randint(0, 5)
+            arrivals["GATE_B"] = random.randint(0, 5)
 
         # A surge represents an additional crowd arrival.
         if self.surge_zone is not None:

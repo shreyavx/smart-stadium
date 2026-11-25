@@ -114,6 +114,8 @@
                             aria-label="Interactive venue crowd density map"></svg>
                         <div class="facility-marker-layer" id="facility-marker-layer"
                             aria-label="Venue facility locations"></div>
+                        <div class="friends-marker-layer" id="friends-marker-layer"
+                            aria-label="Friend Finder live locations"></div>
                         <div class="map-tooltip" id="map-tooltip" hidden></div>
                         <div class="map-facility-popup" id="map-facility-popup" role="group"
                             aria-label="Facility information" aria-live="polite" hidden>
@@ -165,6 +167,29 @@
                             </div>
                         </div>
 
+                        <!-- 5-Minute Forecast Metric Box -->
+                        <div class="forecast-metric-card" id="detail-forecast-card">
+                            <div class="forecast-header">
+                                <span class="forecast-title">5-MIN CROWD FORECAST</span>
+                                <span class="pill pill-low" id="detail-forecast-severity">Normal</span>
+                            </div>
+                            <div class="forecast-body">
+                                <div>
+                                    <span class="metric-label">Predicted Occupancy</span>
+                                    <strong id="detail-forecast-occ">--%</strong>
+                                </div>
+                                <div>
+                                    <span class="metric-label">Expected Trend</span>
+                                    <span class="forecast-trend" id="detail-forecast-trend">--</span>
+                                </div>
+                            </div>
+                            <div class="occupancy-bar-wrap" style="margin-top: 8px;">
+                                <div class="occupancy-bar-track">
+                                    <div class="occupancy-bar-fill forecast-bar-fill" id="detail-forecast-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="occupancy-bar-wrap">
                             <div class="occupancy-bar-track">
                                 <div class="occupancy-bar-fill" id="detail-occupancy-bar"></div>
@@ -183,42 +208,99 @@
             <section class="panel panel-alerts" aria-labelledby="alerts-heading">
                 <div class="panel-header">
                     <div>
-                        <h2 id="alerts-heading">Live Alerts</h2>
-                        <p class="panel-subtitle">Sample alerts (demonstration data)</p>
+                        <h2 id="alerts-heading">Live Incident Alerts</h2>
+                        <p class="panel-subtitle">Actionable alerts &amp; operator recommendations</p>
                     </div>
-                    <span class="badge badge-danger" id="alert-count">03 Demo</span>
+                    <span class="badge badge-neutral" id="alert-count">0 Unhandled</span>
                 </div>
 
                 <div class="panel-list" id="alerts-list">
-                    <article class="alert-item alert-critical">
-                        <div class="item-top">
-                            <strong>Gate B Entrance</strong>
-                            <span class="pill pill-critical">Critical</span>
-                        </div>
-                        <p>Crowd density reached 92% capacity. Redirect incoming spectators to Gate D.</p>
-                        <span class="item-meta">Demo Alert • Just now</span>
-                    </article>
-
-                    <article class="alert-item alert-high">
-                        <div class="item-top">
-                            <strong>North Concourse</strong>
-                            <span class="pill pill-high">High</span>
-                        </div>
-                        <p>Heavy pedestrian buildup near concession stands (78% capacity).</p>
-                        <span class="item-meta">Demo Alert • 2 mins ago</span>
-                    </article>
-
-                    <article class="alert-item alert-medium">
-                        <div class="item-top">
-                            <strong>West Tunnel Exit</strong>
-                            <span class="pill pill-medium">Medium</span>
-                        </div>
-                        <p>Moderate slowdown observed; monitor flow over next 5 minutes.</p>
-                        <span class="item-meta">Demo Alert • 4 mins ago</span>
-                    </article>
+                    <div style="padding: 16px; color: var(--text-muted); font-size: 13px; text-align: center;">
+                        No active critical alerts. Stadium conditions normal.
+                    </div>
                 </div>
             </section>
 
+        </section>
+
+        <!-- Operator Incident Controls & Dynamic Routing Panel -->
+        <section class="panel panel-operator" aria-labelledby="operator-heading" style="margin-bottom: 24px;">
+            <div class="panel-header">
+                <div>
+                    <h2 id="operator-heading">Operator Incident Controls &amp; Dynamic Routing</h2>
+                    <p class="panel-subtitle">Manage corridor closures and compute dynamic diversion routes</p>
+                </div>
+                <span class="badge badge-warning" id="blocked-count-badge">0 Blocked</span>
+            </div>
+
+            <div class="operator-grid">
+                <!-- Corridor Blocking Section -->
+                <div class="operator-block-card">
+                    <h3 style="font-size: 14px; margin-bottom: 8px; color: #f1f5f9;">Corridor Closure</h3>
+                    <div class="operator-form-row">
+                        <label for="incident-connection-select" style="font-size: 12px; color: var(--text-muted);">Select Corridor:</label>
+                        <select id="incident-connection-select" class="operator-select">
+                            <option value="GATE_A|MAIN_CONCOURSE">Gate A ↔ Main Concourse</option>
+                            <option value="GATE_B|MAIN_CONCOURSE">Gate B ↔ Main Concourse</option>
+                            <option value="MAIN_CONCOURSE|NORTH_STAND">Main Concourse ↔ North Stand</option>
+                            <option value="MAIN_CONCOURSE|SOUTH_STAND">Main Concourse ↔ South Stand</option>
+                            <option value="MAIN_CONCOURSE|FOOD_COURT">Main Concourse ↔ Food Court</option>
+                            <option value="NORTH_STAND|CENTRAL_EXIT">North Stand ↔ Central Exit</option>
+                            <option value="SOUTH_STAND|RESTROOM_CORRIDOR">South Stand ↔ Restroom Corridor</option>
+                            <option value="FOOD_COURT|RESTROOM_CORRIDOR">Food Court ↔ Restroom Corridor</option>
+                            <option value="RESTROOM_CORRIDOR|CENTRAL_EXIT">Restroom Corridor ↔ Central Exit</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 10px;">
+                        <button type="button" class="btn btn-secondary" id="block-connection-btn" style="flex: 1;">🚫 Block Corridor</button>
+                        <button type="button" class="btn btn-outline" id="reopen-connection-btn" style="flex: 1;">✅ Reopen Corridor</button>
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Active Closures:</span>
+                        <div id="blocked-connections-list" style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px;">
+                            <span style="font-size: 12px; color: var(--text-muted);">All corridors open</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Routing Request Section -->
+                <div class="operator-block-card">
+                    <h3 style="font-size: 14px; margin-bottom: 8px; color: #f1f5f9;">Dynamic Route Guidance</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div>
+                            <label for="route-start-select" style="font-size: 11px; color: var(--text-muted);">From:</label>
+                            <select id="route-start-select" class="operator-select">
+                                <option value="GATE_A">Gate A</option>
+                                <option value="GATE_B">Gate B</option>
+                                <option value="MAIN_CONCOURSE">Main Concourse</option>
+                                <option value="NORTH_STAND">North Stand</option>
+                                <option value="SOUTH_STAND">South Stand</option>
+                                <option value="FOOD_COURT">Food Court</option>
+                                <option value="RESTROOM_CORRIDOR">Restroom Corridor</option>
+                                <option value="CENTRAL_EXIT">Central Exit</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="route-dest-select" style="font-size: 11px; color: var(--text-muted);">To:</label>
+                            <select id="route-dest-select" class="operator-select">
+                                <option value="CENTRAL_EXIT" selected>Central Exit</option>
+                                <option value="NORTH_STAND">North Stand</option>
+                                <option value="SOUTH_STAND">South Stand</option>
+                                <option value="FOOD_COURT">Food Court</option>
+                                <option value="MAIN_CONCOURSE">Main Concourse</option>
+                                <option value="GATE_A">Gate A</option>
+                                <option value="GATE_B">Gate B</option>
+                                <option value="RESTROOM_CORRIDOR">Restroom Corridor</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="calculate-route-btn" style="width: 100%; margin-top: 10px;">Find Optimal Route</button>
+
+                    <div id="route-result-box" style="margin-top: 10px; padding: 10px; border-radius: 6px; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-subtle); font-size: 12px; min-height: 48px;">
+                        <span style="color: var(--text-muted);">Select start &amp; destination to calculate congestion-aware route.</span>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Crowd Density Analytics Panel (Full Width) -->
